@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Patient {
+  id          String   @id @default(cuid())
+  name        String
+  age         Int
+  gender      String
+  phone       String?
+  language    String
+  abhaAddress String?
+  identity    Json?    // Stores PatientIdentity: { type, idNumber, isVerified }
+  
+  sessions    Session[]
+  consents    Consent[]
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  consentId String   @unique
+  patientId String
+  sessionId String
+  purpose   String
+  scope     Json     // String[]
+  status    String   // 'granted' | 'revoked' | 'pending'
+  grantedAt DateTime @default(now())
+  revokedAt DateTime?
+  version   String
+  
+  patient   Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Session {
+  id                String   @id @default(cuid())
+  patientId         String
+  language          String
+  accessibilityMode String
+  state             String
+  inputMode         String
+  startedAt         DateTime @default(now())
+  clinicalState     Json     // Stores all extracted entities, HPI, ayush, etc.
+  abdmStatus        String
+  hisStatus         String
+
+  patient           Patient  @relation(fields: [patientId], references: [id])
+  documents         Document[]
+  summary           Summary?
+}
+
+model Document {
+  id                     String   @id @default(cuid())
+  sessionId              String
+  fileName               String
+  fileType               String
+  docType                String
+  uploadDate             DateTime @default(now())
+  status                 String
+  progressPercent        Int
+  ocrConfidence          Float
+  extractedEntitiesCount Int
+  rawOcrText             String?
+  extractedData          Json?
+
+  session                Session  @relation(fields: [sessionId], references: [id])
+}
+
+model Summary {
+  id                 String   @id @default(cuid())
+  sessionId          String   @unique
+  verificationStatus String
+  chiefComplaint     String?
+  hpi                String?
+  pastMedicalHistory Json?    // String[]
+  pastSurgicalHistory Json?
+  medications        Json?
+  allergies          Json?
+  familyHistory      Json?
+  personalHistory    Json?
+  reviewOfSystems    Json?
+  priorInvestigations Json?
+  ayush              Json?
+  priorityAlerts     Json?
+  conflicts          Json?
+  physicianNotes     String?
+  verifiedByDoctor   String?
+  verifiedAt         DateTime?
+  generatedAt        DateTime @default(now())
+  auditTrail         Json?
+
+  session            Session  @relation(fields: [sessionId], references: [id])
+}
+
+model RedFlag {
+  id                      String   @id @default(cuid())
+  title                   String
+  reason                  String
+  evidence                Json     // String[]
+  riskLevel               String
+  requiresImmediateTriage Boolean
+  source                  Json
+  ruleId                  String
+  status                  String   // 'active' | 'acknowledged' | 'resolved'
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  timestamp DateTime @default(now())
+  resource  String
+  sessionId String?
+  metadata  Json?
+}

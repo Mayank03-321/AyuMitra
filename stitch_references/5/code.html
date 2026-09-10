@@ -1,0 +1,770 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>MediKiosk • Clinical Dashboard</title>
+<!-- Tailwind CSS CDN with forms and container queries plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf9',
+              100: '#ccfbef',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e48',
+              deep: '#0f4842',
+              card: 'rgba(255, 255, 255, 0.82)'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          boxShadow: {
+            glass: '0 8px 32px 0 rgba(20, 60, 50, 0.08)',
+            card: '0 4px 20px -2px rgba(18, 52, 45, 0.05)',
+            glow: '0 0 15px rgba(20, 184, 166, 0.35)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Stylesheets -->
+<style data-purpose="glassmorphism-and-layout">
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Custom backdrop blur card styles */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+    }
+
+    .glass-panel-subtle {
+      background: rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+
+    .glass-panel-teal {
+      background: linear-gradient(135deg, #0e5b53 0%, #0d4a43 100%);
+    }
+
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(13, 148, 136, 0.25);
+      border-radius: 9999px;
+    }
+  </style>
+<!-- END: Stylesheets -->
+</head>
+<body class="min-h-screen bg-neutral-100 text-slate-800 antialiased relative selection:bg-teal-100 selection:text-teal-900 p-3 sm:p-5 md:p-8 flex items-center justify-center">
+<!-- BEGIN: Background Layer -->
+<div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+<img alt="Organic wavy green background" class="w-full h-full object-cover object-center filter brightness-[1.02] contrast-[0.98]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsd8SsDvR9JQaI1qsyxIwLFxFot9TC8Cc5DS7cSK45ulcdAJPV_nyc6Dak--CRR0dyy5934Pvjo21vEKJ75J-XiSDWrP-CufA37-o5sa-CxQ_w5UFPcyPMcGvuXjQ6faON6RL6xm3CyHKkaHt5KyBsSDD5fjn-rU3l1IOB1ufH3zXhXI_xGjzLUMsuc4Ahl9KFJLBxBXZOr8Ki8R_EyJzHRwbuYMghBxMAHSjj6vskvg6UnvYNR_mWTruZNGHtkzKaMg">
+<!-- Subtle overarching soft light gradient overlay -->
+<div class="absolute inset-0 bg-gradient-to-tr from-teal-900/10 via-transparent to-white/40"></div>
+</div>
+<!-- END: Background Layer -->
+<!-- BEGIN: Main Outer Dashboard Wrapper -->
+<div class="relative z-10 w-full max-w-[1540px] rounded-[36px] bg-white/75 backdrop-blur-2xl border border-white/80 shadow-[0_25px_60px_-15px_rgba(15,45,40,0.18)] p-3 sm:p-5 lg:p-7 transition-all duration-300">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
+<!-- BEGIN: Left Navigation Sidebar -->
+<aside class="lg:col-span-3 xl:col-span-2 flex flex-col justify-between space-y-6 pt-1">
+<div class="space-y-6">
+<!-- Logo Brand -->
+<div class="flex items-center space-x-3 px-2">
+<div class="w-10 h-10 rounded-xl bg-teal-800 flex items-center justify-center text-white shadow-sm ring-2 ring-teal-700/20">
+<svg class="w-5 h-5 text-teal-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-1.5">
+<span class="font-bold text-lg text-slate-800 tracking-tight">MediKiosk</span>
+<span class="w-2 h-2 rounded-full bg-teal-500"></span>
+</div>
+<p class="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">AI Multilingual Intake</p>
+</div>
+</div>
+<!-- Main Navigation Links -->
+<nav class="space-y-1.5 text-[13px] font-medium" data-purpose="sidebar-nav">
+<!-- Active item -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-teal-800 text-white shadow-md font-semibold transition" href="#">
+<div class="flex items-center space-x-3">
+<svg class="w-4 h-4 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Dashboard</span>
+</div>
+</a>
+<!-- Queue with Count Badge -->
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<div class="flex items-center space-x-3">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Patient Queue</span>
+</div>
+<span class="text-[11px] font-semibold text-slate-500 bg-slate-100/90 px-2 py-0.5 rounded-full">38</span>
+</a>
+<!-- Other Menu Items -->
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">AI Clinical Summary</span>
+</a>
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">AI Voice Transcript</span>
+</a>
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Medical Records &amp; OCR</span>
+</a>
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Medications &amp; History</span>
+</a>
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Multilingual Intake</span>
+</a>
+<a class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Doctor Verification</span>
+</a>
+<a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-600 hover:bg-white/60 hover:text-slate-900 transition" href="#">
+<div class="flex items-center space-x-3 text-rose-600 font-medium">
+<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Priority Cases</span>
+</div>
+<span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+</a>
+</nav>
+</div>
+<!-- Sidebar Bottom Footer Status -->
+<div class="pt-6 border-t border-slate-200/60 text-[12px] text-slate-500 space-y-2.5">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+<span class="font-medium text-slate-700">AI Models Active • v3.2</span>
+</div>
+<div class="flex items-center space-x-2 text-slate-400">
+<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Apex Multi-Specialty Clinic</span>
+</div>
+</div>
+</aside>
+<!-- END: Left Navigation Sidebar -->
+<!-- BEGIN: Center & Right Main Content Area -->
+<main class="lg:col-span-9 xl:col-span-10 space-y-6">
+<!-- BEGIN: Top Header Bar -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<span class="text-xs font-medium text-slate-500">Welcome back, Dr. Ananya 👋</span>
+<h1 class="text-2xl lg:text-3xl font-extrabold text-slate-800 tracking-tight">Clinical Dashboard</h1>
+</div>
+<!-- Header Right Utilities & Doctor Profile -->
+<div class="flex items-center gap-3 whitespace-nowrap">
+<!-- Quick Search -->
+<div class="relative min-w-[190px]">
+<svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<input class="w-full text-xs pl-9 pr-3 py-2 bg-white/70 border border-slate-200/80 rounded-full focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition shadow-sm placeholder:text-slate-400" placeholder="Search patient, symptoms..." type="text">
+</div>
+<!-- Language Switcher -->
+<div class="flex items-center text-xs font-semibold bg-white/70 border border-slate-200/80 rounded-full px-2.5 py-1.5 shadow-sm text-slate-600">
+<svg class="w-3.5 h-3.5 text-slate-500 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="text-teal-700 font-bold">EN</span>
+<span class="mx-1 text-slate-300">|</span>
+<span class="hover:text-slate-900 cursor-pointer">HI</span>
+<span class="mx-1 text-slate-300">|</span>
+<span class="hover:text-slate-900 cursor-pointer">MR</span>
+<span class="mx-1 text-slate-300">|</span>
+<span class="hover:text-slate-900 cursor-pointer">TA</span>
+</div>
+<!-- Red Flags Counter Tag -->
+<div class="flex items-center space-x-1 px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-full text-rose-600 text-xs font-semibold shadow-sm">
+<svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">05 Red Flags</span>
+</div>
+<!-- Bell Notification -->
+<button aria-label="Notifications" class="relative p-2 bg-white/70 hover:bg-white rounded-full border border-slate-200/80 shadow-sm text-slate-600 transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="w-2 h-2 rounded-full bg-rose-500 absolute top-1.5 right-1.5 ring-2 ring-white"></span>
+</button>
+<!-- Doctor Profile Badge -->
+<div class="flex items-center space-x-2 pl-1">
+<div class="w-9 h-9 rounded-full bg-teal-700 text-white font-semibold flex items-center justify-center text-xs shadow-inner">
+                AS
+              </div>
+<div class="leading-tight hidden xl:block text-left">
+<span class="text-xs font-bold text-slate-800 block">Dr. Ananya Sharma</span>
+<span class="text-[10px] text-slate-400 font-medium">MD • Internal Med</span>
+</div>
+</div>
+</div>
+</header>
+<!-- END: Top Header Bar -->
+<!-- BEGIN: Top Metric KPI Row -->
+<section class="grid grid-cols-2 md:grid-cols-4 gap-3.5 md:gap-4" data-purpose="metrics-summary">
+<!-- Card 1: Total Patients -->
+<div class="glass-panel p-4 rounded-2xl shadow-card flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<span class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">TOTAL PATIENTS</span>
+<div class="w-8 h-8 rounded-lg bg-teal-100/70 text-teal-800 flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<div class="mt-2">
+<span class="text-2xl md:text-3xl font-extrabold text-slate-800">38</span>
+<div class="flex items-center space-x-1 text-emerald-600 text-[11px] font-semibold mt-0.5">
+<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">+12% today</span>
+</div>
+</div>
+</div>
+<!-- Card 2: Kiosk Waiting -->
+<div class="glass-panel p-4 rounded-2xl shadow-card flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<span class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">KIOSK WAITING</span>
+<div class="w-8 h-8 rounded-lg bg-blue-100/70 text-blue-700 flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<div class="mt-2">
+<span class="text-2xl md:text-3xl font-extrabold text-slate-800">14</span>
+<div class="text-slate-500 text-[11px] font-medium mt-0.5">
+                Avg wait 8 mins
+              </div>
+</div>
+</div>
+<!-- Card 3: AI Completed -->
+<div class="glass-panel p-4 rounded-2xl shadow-card flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<span class="text-[11px] font-bold text-slate-400 tracking-wide uppercase">AI COMPLETED</span>
+<div class="w-8 h-8 rounded-lg bg-purple-100/70 text-purple-700 flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<div class="mt-2">
+<span class="text-2xl md:text-3xl font-extrabold text-slate-800">19</span>
+<div class="text-teal-700 font-medium text-[11px] mt-0.5">
+                Ready to verify
+              </div>
+</div>
+</div>
+<!-- Card 4: High Priority -->
+<div class="glass-panel p-4 rounded-2xl shadow-card flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<span class="text-[11px] font-bold text-rose-500 tracking-wide uppercase">HIGH PRIORITY</span>
+<div class="w-8 h-8 rounded-lg bg-rose-100/70 text-rose-600 flex items-center justify-center">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<div class="mt-2">
+<span class="text-2xl md:text-3xl font-extrabold text-rose-600">05</span>
+<div class="text-rose-500 font-semibold text-[11px] mt-0.5">
+                Immediate triage
+              </div>
+</div>
+</div>
+</section>
+<!-- END: Top Metric KPI Row -->
+<!-- BEGIN: 2-Column Content Grid (Table + Guidance Card / Right Rail) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+<!-- Left Large Column: Queue Table & Terminal Banner -->
+<div class="xl:col-span-8 space-y-6">
+<!-- BEGIN: Patient Intake Queue Section -->
+<div class="glass-panel p-5 sm:p-6 rounded-3xl shadow-card"><!-- Top Header Row -->
+<div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+<div class="flex items-center space-x-2.5 flex-wrap gap-y-2">
+<h2 class="text-lg md:text-xl font-bold text-slate-800 tracking-tight">Today's Patient Intake Queue</h2>
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+      Live Kiosk Feed
+    </span>
+</div>
+<div class="inline-flex items-center space-x-1.5 text-xs font-medium text-slate-600 bg-slate-100/90 px-3 py-1 rounded-full">
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="">Synced 12s ago</span>
+</div>
+</div>
+<!-- Filter Tabs Row -->
+<div class="flex items-center space-x-2 overflow-x-auto pb-1 text-xs font-semibold mb-4">
+<button class="px-3.5 py-1.5 bg-teal-800 text-white rounded-full shadow-sm whitespace-nowrap">All (38)</button>
+<button class="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100/70 text-rose-600 rounded-full flex items-center space-x-1.5 whitespace-nowrap transition">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+<span class="">High Priority (5)</span>
+</button>
+<button class="px-3.5 py-1.5 bg-slate-100/90 hover:bg-slate-100 text-slate-700 rounded-full whitespace-nowrap transition">AI Ready (19)</button>
+<button class="px-3.5 py-1.5 bg-slate-100/90 hover:bg-slate-100 text-slate-700 rounded-full whitespace-nowrap transition">In Voice Session (8)</button>
+<button class="px-3.5 py-1.5 bg-slate-100/90 hover:bg-slate-100 text-slate-700 rounded-full whitespace-nowrap transition">Completed</button>
+</div>
+<!-- Table Content -->
+<div class="overflow-x-auto" data-purpose="intake-table-container">
+<table class="w-full text-left text-xs border-collapse">
+<thead>
+<tr class="bg-slate-50/70 rounded-xl text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+<th class="py-2.5 px-3 rounded-l-xl">PATIENT</th>
+<th class="py-2.5 px-3">CHIEF COMPLAINT</th>
+<th class="py-2.5 px-3">AI INTAKE STATUS</th>
+<th class="py-2.5 px-3 rounded-r-xl">PRIORITY</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<!-- Row 1: Rahul Kumar -->
+<tr class="hover:bg-teal-50/40 transition">
+<td class="py-3.5 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-xs shadow-sm">
+              RK
+            </div>
+<div>
+<span class="font-bold text-slate-800 text-[13px] block">Rahul Kumar</span>
+<div class="flex items-center text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+<span class="">MK-8492</span>
+<span class="">•</span>
+<span class="">M/42</span>
+<span class="">•</span>
+<span class="px-1.5 py-0.2 rounded bg-blue-50 text-indigo-700 font-medium">Hindi</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="font-medium text-slate-700 block">Chest discomfort...</span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+<svg class="w-3.5 h-3.5 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            AI Ready &amp; Structured
+          </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-100/70 text-rose-600">
+<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            High Priority
+          </span>
+</td>
+</tr>
+<!-- Row 2: Priya Shah -->
+<tr class="hover:bg-teal-50/40 transition">
+<td class="py-3.5 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-blue-100 text-blue-800 font-bold flex items-center justify-center text-xs shadow-sm">
+              PS
+            </div>
+<div>
+<span class="font-bold text-slate-800 text-[13px] block">Priya Shah</span>
+<div class="flex items-center text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+<span class="">MK-8493</span>
+<span class="">•</span>
+<span class="">F/29</span>
+<span class="">•</span>
+<span class="px-1.5 py-0.2 rounded bg-blue-50 text-indigo-700 font-medium">Gujarati</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="font-medium text-slate-700 block">Severe throbbing...</span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+<svg class="w-3.5 h-3.5 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            AI Ready
+          </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+            Medium
+          </span>
+</td>
+</tr>
+<!-- Row 3: Amit Patel -->
+<tr class="hover:bg-teal-50/40 transition">
+<td class="py-3.5 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-purple-100 text-purple-800 font-bold flex items-center justify-center text-xs shadow-sm">
+              AP
+            </div>
+<div>
+<span class="font-bold text-slate-800 text-[13px] block">Amit Patel</span>
+<div class="flex items-center text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+<span class="">MK-8494</span>
+<span class="">•</span>
+<span class="">M/56</span>
+<span class="">•</span>
+<span class="px-1.5 py-0.2 rounded bg-blue-50 text-indigo-700 font-medium">Marathi</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="font-medium text-slate-700 block">High-grade fever with...</span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100/70 text-blue-800">
+<span class="w-1.5 h-3 rounded-full bg-blue-500 mr-1.5 animate-pulse"></span>
+            Transcribing 82%
+          </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+            Medium
+          </span>
+</td>
+</tr>
+<!-- Row 4: Sunita Devi -->
+<tr class="hover:bg-teal-50/40 transition">
+<td class="py-3.5 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs shadow-sm">
+              SD
+            </div>
+<div>
+<span class="font-bold text-slate-800 text-[13px] block">Sunita Devi</span>
+<div class="flex items-center text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+<span class="">MK-8495</span>
+<span class="">•</span>
+<span class="">F/61</span>
+<span class="">•</span>
+<span class="px-1.5 py-0.2 rounded bg-blue-50 text-indigo-700 font-medium">Hindi</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="font-medium text-slate-700 block">Chronic breathlessness...</span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+<svg class="w-3.5 h-3.5 mr-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            AI Ready
+          </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-100/70 text-rose-600">
+<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            High Priority
+          </span>
+</td>
+</tr>
+<!-- Row 5: Vikram Malhotra -->
+<tr class="hover:bg-teal-50/40 transition">
+<td class="py-3.5 px-3">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-xs shadow-sm">
+              VM
+            </div>
+<div>
+<span class="font-bold text-slate-800 text-[13px] block">Vikram Malhotra</span>
+<div class="flex items-center text-[11px] text-slate-400 space-x-1.5 mt-0.5">
+<span class="">MK-8496</span>
+<span class="">•</span>
+<span class="">M/35</span>
+<span class="">•</span>
+<span class="px-1.5 py-0.2 rounded bg-blue-50 text-indigo-700 font-medium">English</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-3">
+<span class="font-medium text-slate-700 block">Routine hypertension...</span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100/90 text-slate-600">
+<svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+            Completed
+          </span>
+</td>
+<td class="py-3.5 px-3">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100/90 text-slate-600">
+            Low
+          </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination Footer -->
+<div class="flex items-center justify-between pt-4 mt-2 border-t border-slate-100 text-xs text-slate-500">
+<span class="">Showing 5 of 38 triage records</span>
+<div class="flex items-center space-x-2">
+<button aria-label="Previous page" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100/90 hover:bg-slate-200 text-slate-700 transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<span class="font-bold text-slate-800 px-2">Page 1 of 8</span>
+<button aria-label="Next page" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100/90 hover:bg-slate-200 text-slate-700 transition">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div></div>
+<!-- END: Patient Intake Queue Section -->
+<!-- BEGIN: Autonomous Terminal Guidance Banner -->
+<div class="glass-panel-teal rounded-3xl p-6 md:p-7 text-white shadow-lg relative overflow-hidden">
+<div class="relative z-10 space-y-4 max-w-2xl">
+<div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-[11px] font-medium tracking-wide">
+<svg class="w-3.5 h-3.5 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="uppercase tracking-wider">Autonomous Intake Terminal Guidance</span>
+</div>
+<div class="space-y-2">
+<h3 class="text-xl md:text-2xl font-bold tracking-tight text-white leading-tight">
+                    Kiosk Multi-Language Voice Pipeline is Live
+                  </h3>
+<p class="text-teal-100/80 text-xs md:text-sm leading-relaxed">
+                    Patients speak naturally in 12 regional vernacular dialects; MediKiosk structures clinical vitals, chief complaints, and red flags directly into SOAP clinical summaries.
+                  </p>
+</div>
+<div class="pt-2 flex flex-wrap items-center gap-4">
+<button class="inline-flex items-center space-x-2 px-5 py-2.5 bg-white hover:bg-slate-50 text-teal-900 font-bold text-xs rounded-full shadow-md transition transform active:scale-95">
+<span class="">Start Next Consultation</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<div class="flex items-center space-x-4 text-[11px] text-teal-200/90 font-medium">
+<span class="flex items-center">
+<svg class="w-3.5 h-3.5 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                      99.2% Accuracy
+                    </span>
+<span class="flex items-center">
+<svg class="w-3.5 h-3.5 mr-1 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                      HIPAA &amp; ABDM Compliant
+                    </span>
+</div>
+</div>
+</div>
+<!-- Decorative ambient topography glow inside the banner -->
+<div class="absolute right-0 bottom-0 top-0 w-1/3 bg-gradient-to-l from-emerald-500/10 to-transparent pointer-events-none"></div>
+</div>
+<!-- END: Autonomous Terminal Guidance Banner -->
+</div>
+<!-- BEGIN: Right Rail Column (Performance, Feeds, Fleet) -->
+<div class="xl:col-span-4 space-y-6">
+<!-- AI Performance Card -->
+<div class="glass-panel p-5 sm:p-6 rounded-3xl shadow-card space-y-5" data-purpose="ai-performance-card">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<h3 class="font-bold text-slate-800 text-sm">AI Performance</h3>
+</div>
+<span class="text-[11px] font-semibold text-teal-700 bg-teal-50 border border-teal-200/60 px-2 py-0.5 rounded-full">Shift Avg</span>
+</div>
+<!-- Circle gauge & avg time -->
+<div class="flex items-center justify-around py-1">
+<!-- Circular Progress -->
+<div class="relative flex items-center justify-center">
+<svg class="w-24 h-24 transform -rotate-90">
+<circle class="text-slate-100" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-width="6"></circle>
+<circle class="text-teal-700" cx="48" cy="48" fill="transparent" r="40" stroke="currentColor" stroke-dasharray="251.2" stroke-dashoffset="15" stroke-linecap="round" stroke-width="6.5"></circle>
+</svg>
+<div class="absolute text-center leading-tight">
+<span class="text-xl font-black text-slate-800">94%</span>
+<span class="block text-[9px] font-bold text-slate-400 uppercase">Complete</span>
+</div>
+</div>
+<!-- Kiosk Time Stats -->
+<div>
+<span class="text-[11px] font-medium text-slate-400 block">Average kiosk time:</span>
+<span class="text-2xl font-black text-slate-800 tracking-tight">3.8 mins</span>
+<span class="flex items-center text-[11px] font-semibold text-emerald-600 mt-0.5">
+<svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                    -1.4 min vs last week
+                  </span>
+</div>
+</div>
+<!-- Secondary Metrics -->
+<div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 text-center">
+<div class="p-2 rounded-xl bg-slate-50/60">
+<span class="text-[11px] font-semibold text-slate-400 block">OCR Accuracy</span>
+<span class="text-lg font-bold text-slate-800">98.6%</span>
+</div>
+<div class="p-2 rounded-xl bg-slate-50/60">
+<span class="text-[11px] font-semibold text-slate-400 block">Doctor Edit Rate</span>
+<span class="text-lg font-bold text-slate-800">6.1%</span>
+</div>
+</div>
+</div>
+<!-- Clinical Feed & Alerts -->
+<div class="glass-panel p-5 sm:p-6 rounded-3xl shadow-card space-y-4" data-purpose="clinical-feed">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-2">
+<svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<h3 class="font-bold text-slate-800 text-sm">Clinical Feed &amp; Alerts</h3>
+</div>
+<span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+</div>
+<div class="space-y-3">
+<!-- Red Flag Alert Item -->
+<div class="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-100 text-xs space-y-1.5 transition hover:bg-rose-50">
+<div class="flex items-center justify-between">
+<span class="font-bold text-rose-600 flex items-center">
+<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                      Red Flag Detected
+                    </span>
+<span class="text-[10px] text-slate-400">10:42 AM</span>
+</div>
+<p class="text-slate-700 leading-snug">
+<strong class="font-semibold text-slate-900">Rahul Kumar:</strong> Chest discomfort + severe hypertension history identified via intake model.
+                  </p>
+</div>
+<!-- OCR Ingestion Item -->
+<div class="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 text-xs space-y-1 transition hover:bg-slate-50">
+<div class="flex items-center justify-between">
+<span class="font-bold text-teal-700 flex items-center">
+<svg class="w-3.5 h-3.5 mr-1 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                      OCR Ingestion
+                    </span>
+<span class="text-[10px] text-slate-400">10:35 AM</span>
+</div>
+<p class="text-slate-600 leading-snug">
+                    Extracted 4 lab values from Apollo Diagnostics PDF for <strong class="text-slate-800 font-semibold">Sunita Devi</strong>.
+                  </p>
+</div>
+<!-- Voice Translation Item -->
+<div class="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/60 text-xs space-y-1 transition hover:bg-slate-50">
+<div class="flex items-center justify-between">
+<span class="font-bold text-indigo-700 flex items-center">
+<svg class="w-3.5 h-3.5 mr-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+                      Voice Translation
+                    </span>
+<span class="text-[10px] text-slate-400">10:28 AM</span>
+</div>
+<p class="text-slate-600 leading-snug">
+                    Hindi audio transcribed &amp; clinical entity tags verified for <strong class="text-slate-800 font-semibold">Amit Patel</strong>.
+                  </p>
+</div>
+</div>
+</div>
+<!-- Kiosk Fleet Status Card -->
+<div class="glass-panel p-5 sm:p-6 rounded-3xl shadow-card space-y-3" data-purpose="kiosk-fleet">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-2.5">
+<div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/70 flex items-center justify-center text-teal-700">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<h3 class="font-bold text-slate-800 text-sm">Kiosk Fleet Status</h3>
+</div>
+</div>
+<span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">3 Online</span>
+</div>
+<p class="text-xs text-slate-500 leading-relaxed">
+                3 Kiosks Active (OPD Bay 1, 2 &amp; Reception). All regional hardware telemetry optimal.
+              </p>
+<div class="pt-2 flex items-center justify-between text-xs font-semibold border-t border-slate-100">
+<span class="flex items-center text-emerald-600">
+<span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
+                  Kiosks in Sync
+                </span>
+<a class="text-teal-800 hover:text-teal-950 flex items-center space-x-1 group" href="#">
+<span class="">Manage Fleet</span>
+<svg class="w-3.5 h-3.5 transform group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</a>
+</div>
+</div>
+</div>
+<!-- END: Right Rail Column -->
+</div>
+<!-- END: 2-Column Content Grid -->
+</main>
+<!-- END: Center & Right Main Content Area -->
+</div>
+</div>
+<!-- END: Main Outer Dashboard Wrapper -->
+
+
+</body></html>

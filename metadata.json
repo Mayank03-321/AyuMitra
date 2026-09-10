@@ -1,0 +1,11 @@
+{
+  "name": "AyuMitra",
+  "description": "AI-Powered Multilingual Patient Case-Taking Software with Voice, Touch, Document OCR, and Physician Verification for Indian Hospital OPDs",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

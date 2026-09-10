@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AyuMitra — PRD & TRD Specification</title>
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-dark: #047857;
+      --secondary: #0284c7;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--slate-800);
+      background-color: var(--slate-50);
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 48px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border: 1px solid var(--border);
+    }
+    h1 {
+      font-size: 2.2rem;
+      color: var(--slate-900);
+      margin-top: 0;
+      border-bottom: 3px solid var(--primary);
+      padding-bottom: 12px;
+    }
+    h2 {
+      font-size: 1.5rem;
+      color: var(--primary-dark);
+      margin-top: 36px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 1.2rem;
+      color: var(--slate-900);
+      margin-top: 24px;
+    }
+    p, li {
+      color: var(--slate-700);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background-color: var(--slate-100);
+      color: var(--slate-900);
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background-color: var(--slate-50);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      background-color: var(--slate-100);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 0.9em;
+    }
+    pre {
+      padding: 16px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    .diagram {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .container { box-shadow: none; border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <span class="badge">Production Specification</span>
+      <span style="font-size: 0.85rem; color: #64748b;">September 2026 • v1.0.0</span>
+    </div>
+
+    <h1>AyuMitra Specification (PRD + TRD)</h1>
+    <p><strong>AI-Powered Clinical Intake Kiosk & Doctor Decision Support Workstation</strong></p>
+
+    <h2>1. Product Requirements (PRD) Overview</h2>
+    <p>AyuMitra addresses outpatient congestion, doctor burnout, and linguistic barriers across Indian hospitals by introducing an automated, multilingual clinical pre-consultation workflow.</p>
+
+    <h3>Key Capabilities</h3>
+    <ul>
+      <li><strong>Multilingual Voice Case-Taking</strong>: Real-time speech conversation powered by OmniVoice and Groq LLM in Indian languages.</li>
+      <li><strong>Direct Landing OCR Document Scanner</strong>: Automated transition to PaddleOCR for physical prescription and lab report digitization.</li>
+      <li><strong>Emergency Red Flag Triage</strong>: Instant identification of cardiovascular, respiratory, and neurological critical symptoms.</li>
+      <li><strong>Dual AYUSH & Modern Medicine Profiling</strong>: SNOMED CT / ICD-10 clinical coding + Prakriti, Agni, and Dosha mapping.</li>
+      <li><strong>ABDM Compliance</strong>: Purpose-limited electronic consent under DPDP Act 2023 and immutable audit logging.</li>
+    </ul>
+
+    <h3>Target Personas</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Persona</th>
+          <th>Role</th>
+          <th>Key Benefit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>OPD Patient</strong></td>
+          <td>Rural / Low-literacy or Urban visitor</td>
+          <td>Empathetic, voice-first self-intake in their mother tongue with zero typing.</td>
+        </tr>
+        <tr>
+          <td><strong>Attending Doctor</strong></td>
+          <td>OPD Physician</td>
+          <td>Pre-structured SOAP summary, instant red flag alerts, 60% consultation time saved.</td>
+        </tr>
+        <tr>
+          <td><strong>Hospital Administrator</strong></td>
+          <td>CMO / Operations Head</td>
+          <td>Reduced queue bottlenecks, verified ABDM/EHR sync, immutable audit trails.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Technical Architecture (TRD)</h2>
+    <div class="diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                   CLIENT TIER (Web SPA)                     │
+│   • Patient Kiosk Interface (Voice, OCR, Intake)            │
+│   • Doctor Workstation (Triage Queue, Review, ABDM Sign-off)│
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTPS / REST
+┌──────────────────────────────▼──────────────────────────────┐
+│             NODE.JS / EXPRESS API SERVER                    │
+│   • Security: Rate Limiting, Helmet, Error Masking          │
+│   • OmniVoice + Groq LLM Conversational Engine              │
+│   • PaddleOCR Subprocess Pipeline Bridge                    │
+└──────┬───────────────────────┬───────────────────────┬──────┘
+       │                       │                       │
+┌──────▼──────┐         ┌──────▼──────┐         ┌──────▼──────┐
+│  PostgreSQL │         │   Groq LLM  │         │  PaddleOCR  │
+│  (Supabase) │         │ (qwen3.8-27b│         │ (Python CLI)│
+└─────────────┘         └─────────────┘         └─────────────┘</div>
+
+    <h3>Technology Stack</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Technology</th>
+          <th>Function</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Frontend</td>
+          <td>React 19, TypeScript 5.8, Tailwind CSS v4, Motion</td>
+          <td>Kiosk & Physician Web Applications</td>
+        </tr>
+        <tr>
+          <td>Backend</td>
+          <td>Node.js v22+, Express 4, tsx</td>
+          <td>REST API & Subprocess Orchestration</td>
+        </tr>
+        <tr>
+          <td>Database</td>
+          <td>Supabase PostgreSQL via Prisma ORM 7</td>
+          <td>Persistent Storage with Connection Pooling</td>
+        </tr>
+        <tr>
+          <td>LLM Engine</td>
+          <td>Groq Cloud (qwen/qwen3.8-27b)</td>
+          <td>High-Speed Clinical NLP & SOAP Summaries</td>
+        </tr>
+        <tr>
+          <td>OCR Engine</td>
+          <td>PaddlePaddle / PaddleOCR</td>
+          <td>Prescription & Lab Document Digitization</td>
+        </tr>
+        <tr>
+          <td>Voice Engine</td>
+          <td>k2-fsa / OmniVoice</td>
+          <td>Speech Recognition & TTS Audio Processing</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. Key REST API Endpoints</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Method</th>
+          <th>Endpoint</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>POST</code></td>
+          <td><code>/api/v1/ai/voice-dialogue</code></td>
+          <td>Conversational voice intake turn & symptom extraction</td>
+        </tr>
+        <tr>
+          <td><code>POST</code></td>
+          <td><code>/api/v1/sessions/:id/documents/ocr-scan</code></td>
+          <td>PaddleOCR prescription & lab report entity parsing</td>
+        </tr>
+        <tr>
+          <td><code>POST</code></td>
+          <td><code>/api/v1/ai/summary/generate</code></td>
+          <td>Physician-grade SOAP note & AYUSH profiling generator</td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/v1/physician/queue</code></td>
+          <td>Live OPD patient queue with priority triage flags</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Security & DPDP Compliance</h2>
+    <ul>
+      <li><strong>Secret Isolation</strong>: API keys and connection strings stored strictly in <code>.env</code>.</li>
+      <li><strong>SQL Injection Immunity</strong>: 100% parameterized queries via Prisma ORM.</li>
+      <li><strong>Attack Mitigation</strong>: Helmet security headers, 120 req/min IP rate limiting, and 10MB payload cap.</li>
+      <li><strong>Data Governance</strong>: Granular patient electronic consent and immutable audit logging (<code>AuditLog</code>).</li>
+    </ul>
+  </div>
+</body>
+</html>
