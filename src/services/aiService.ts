@@ -32,7 +32,9 @@ export async function transcribeAudio(
   try {
     const buffer = Buffer.from(audioBase64, 'base64');
     const ext = mimeType.includes('wav') ? 'wav' : mimeType.includes('mp4') || mimeType.includes('m4a') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm';
-    const file = new File([buffer], `audio.${ext}`, { type: mimeType });
+    const uint8 = new Uint8Array(buffer);
+    const blob = new Blob([uint8], { type: mimeType });
+    const file = new File([blob], `audio.${ext}`, { type: mimeType });
 
     const formData = new FormData();
     formData.append('file', file);

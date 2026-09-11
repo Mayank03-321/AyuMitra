@@ -190,73 +190,140 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
   }, [language, isHindi]);
 
-  // Start Real Audio Recording with MediaRecorder
+  // Setup and handle Audio Recording with resilient hardware constraints & Web Speech STT
   const startAudioRecording = async () => {
     // 1. Immediately silence AI speaking
     stopSpeaking();
-
     setMicPermissionError(null);
     audioChunksRef.current = [];
 
+    // Check mediaDevices support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicPermissionError(
+        isHindi
+          ? 'इस ब्राउज़र में ऑडियो रिकॉर्डिंग समर्थित नहीं है। कृपया नीचे बॉक्स में लिखें।'
+          : 'Audio recording is not supported in this browser environment. Please type or use quick options below.'
+      );
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        },
-      });
+      // Robust getUserMedia with multi-tier constraints fallback
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+      } catch (constraintErr) {
+        console.warn('Advanced audio constraints rejected, falling back to basic audio:', constraintErr);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
       mediaStreamRef.current = stream;
 
-      // Determine supported mime type
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : 'audio/ogg';
+      // Start Browser Web Speech Recognition as real-time live STT
+      const SpeechRecognitionClass =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+      if (SpeechRecognitionClass) {
+        try {
+          if (recognitionRef.current) {
+            try { recognitionRef.current.abort(); } catch {}
+          }
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+          const recognition = new SpeechRecognitionClass();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = isHindi ? 'hi-IN' : 'en-IN';
+
+          recognition.onresult = (event: any) => {
+            let fullText = '';
+            for (let i = 0; i < event.results.length; i++) {
+              fullText += event.results[i][0].transcript + ' ';
+            }
+            const trimmed = fullText.trim();
+            if (trimmed) {
+              setCurrentInputText(trimmed);
+            }
+          };
+
+          recognition.onerror = (e: any) => {
+            console.warn('SpeechRecognition interim event:', e?.error);
+          };
+
+          recognition.start();
+          recognitionRef.current = recognition;
+        } catch (speechErr) {
+          console.warn('SpeechRecognition initialization note:', speechErr);
         }
-      };
+      }
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        if (audioBlob.size > 0) {
-          await processAudioWithWhisperStt(audioBlob, mimeType);
+      // Initialize MediaRecorder for Whisper high-accuracy STT
+      let recorderOptions: MediaRecorderOptions = {};
+      let chosenMime = 'audio/webm';
+
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          chosenMime = 'audio/webm;codecs=opus';
+          recorderOptions = { mimeType: chosenMime };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          chosenMime = 'audio/webm';
+          recorderOptions = { mimeType: chosenMime };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          chosenMime = 'audio/mp4';
+          recorderOptions = { mimeType: chosenMime };
         }
-      };
 
-      mediaRecorder.start(250); // collect data chunks every 250ms
+        const mediaRecorder = new MediaRecorder(stream, recorderOptions);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          // Release mic stream tracks cleanly on stop
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+            mediaStreamRef.current = null;
+          }
+
+          const audioBlob = new Blob(audioChunksRef.current, { type: chosenMime });
+          if (audioBlob.size > 0) {
+            await processAudioWithWhisperStt(audioBlob, chosenMime);
+          } else if (currentInputText.trim()) {
+            await handleSendMessage(currentInputText.trim(), false);
+          }
+        };
+
+        mediaRecorder.start(250);
+      }
+
       setIsListening(true);
       setRecordingSeconds(0);
 
       // Start duration counter
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = setInterval(() => {
         setRecordingSeconds((sec) => sec + 1);
       }, 1000);
-
-      // Start interim recognition if available
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.lang = isHindi ? 'hi-IN' : 'en-IN';
-          recognitionRef.current.start();
-        } catch {
-          // ignore
-        }
-      }
     } catch (err: any) {
       console.warn('Microphone access issue:', err);
+      const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
       setMicPermissionError(
-        isHindi
-          ? 'माइक्रोफोन की अनुमति नहीं मिली। कृपया नीचे बॉक्स में अपनी समस्या लिखें या विकल्प चुनें।'
-          : 'Microphone permission not granted. Please type your symptoms or use quick options below.'
+        isDenied
+          ? isHindi
+            ? 'माइक्रोफ़ोन की अनुमति अस्वीकृत है। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें या नीचे बॉक्स में टाइप करें।'
+            : 'Microphone permission was denied. Please allow microphone in your browser settings or type symptoms below.'
+          : isHindi
+          ? 'माइक्रोफ़ोन से कनेक्ट नहीं हो सका। कृपया नीचे बॉक्स में अपनी समस्या लिखें।'
+          : 'Could not connect to microphone. Please type your symptoms or use quick options below.'
       );
       setIsListening(false);
     }
@@ -278,10 +345,10 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-
-    if (mediaStreamRef.current) {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    } else if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
     }
@@ -702,6 +769,23 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
                 <FileText className="w-3.5 h-3.5" />
                 <span>{isHindi ? 'दस्तावेज़ स्कैन (OCR) पर जाएं' : 'Move to OCR Scan'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Mic Permission / Connection Banner */}
+          {micPermissionError && (
+            <div className="mx-4 mb-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{micPermissionError}</span>
+              </div>
+              <button
+                type="button"
+                onClick={startAudioRecording}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0"
+              >
+                {isHindi ? 'पुनः प्रयास करें' : 'Retry Mic'}
               </button>
             </div>
           )}
