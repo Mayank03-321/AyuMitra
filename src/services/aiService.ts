@@ -360,8 +360,8 @@ export async function generateAdaptiveFollowUp(clinicalState: any, language = 'e
  */
 export async function generateClinicalSummary(clinicalState: any) {
   return {
-    chiefComplaint: clinicalState.chief_complaint || [{ symptom: 'Chest pain & Dyspnoea', duration: '2 days' }],
-    hpi: clinicalState.hpi || { onset: '2 days ago', severity: 'severe' },
+    chiefComplaint: typeof clinicalState?.chief_complaint === 'string' ? clinicalState.chief_complaint : JSON.stringify(clinicalState?.chief_complaint || [{ symptom: 'Chest pain & Dyspnoea', duration: '2 days' }]),
+    hpi: typeof clinicalState?.hpi === 'string' ? clinicalState.hpi : JSON.stringify(clinicalState?.hpi || { onset: '2 days ago', severity: 'severe' }),
     subjective: '58yo male presenting with 2-day history of exertional chest pain and shortness of breath.',
     objective: 'BP 148/92 mmHg, Pulse 88 bpm. OCR lab shows HbA1c 7.2% (elevated).',
     assessment: [
@@ -372,7 +372,14 @@ export async function generateClinicalSummary(clinicalState: any) {
       'Stat 12-lead ECG and Troponin-I test',
       'Tab Aspirin 300mg stat dose',
       'Cardiology evaluation'
-    ]
+    ],
+    pastMedicalHistory: clinicalState?.past_medical_history || ['Hypertension diagnosed 2021', 'Type 2 Diabetes Mellitus'],
+    pastSurgicalHistory: clinicalState?.past_surgical_history || ['Appendectomy (2014)'],
+    medications: clinicalState?.medications || ['Tab Telmisartan 40mg OD', 'Tab Metformin 500mg BD'],
+    allergies: clinicalState?.allergies || ['Sulfa drugs (Mild rash)'],
+    reviewOfSystems: clinicalState?.review_of_systems || { cardiovascular: 'Exertional chest tightness', respiratory: 'Shortness of breath on walking' },
+    ayushFindings: clinicalState?.ayush || { prakriti: 'Pitta-Vata', agni: 'Vishama', koshtha: 'Madhyama' },
+    priorityAlerts: clinicalState?.priority_alerts || ['Potential Acute Coronary Syndrome']
   };
 }
 

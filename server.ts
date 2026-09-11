@@ -501,6 +501,11 @@ app.post('/api/v1/sessions/:id/documents/ocr-scan', async (req, res, next) => {
 
     // 3. Save Document in PostgreSQL via Prisma
     const docId = 'DOC-' + Date.now();
+    const typedExtracted = (extractedData || {}) as any;
+    const extractedMeds = typedExtracted.medications || [];
+    const extractedLabs = typedExtracted.labResults || typedExtracted.labs || [];
+    const totalEntities = typedExtracted.extractedEntitiesCount || (extractedMeds.length + extractedLabs.length);
+
     const doc = await prisma.document.create({
       data: {
         id: docId,
@@ -511,7 +516,7 @@ app.post('/api/v1/sessions/:id/documents/ocr-scan', async (req, res, next) => {
         status: 'COMPLETED',
         progressPercent: 100,
         ocrConfidence: ocrResult.ocrConfidence || 0.92,
-        extractedEntitiesCount: extractedData.extractedEntitiesCount || ((extractedData.medications?.length || 0) + (extractedData.labResults?.length || 0)),
+        extractedEntitiesCount: totalEntities,
         rawOcrText: ocrResult.rawText,
         extractedData: extractedData as any,
       }
@@ -523,11 +528,11 @@ app.post('/api/v1/sessions/:id/documents/ocr-scan', async (req, res, next) => {
       const existingState = (session.clinicalState as any) || {};
       const updatedMeds = [
         ...(existingState.medications || []),
-        ...(extractedData.medications || [])
+        ...extractedMeds
       ];
       const updatedLabs = [
         ...(existingState.investigations || []),
-        ...(extractedData.labResults || [])
+        ...extractedLabs
       ];
 
       await prisma.session.update({
@@ -623,6 +628,22 @@ app.get('/api/v1/ai/status', (_req, res) => {
     model: 'qwen/qwen3.8-27b',
     status: 'ACTIVE_HEALTHY'
   });
+});
+
+app.get('/api/v1/health', (_req, res) => {
+  res.json({ status: 'UP', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/v1/audit-trail', async (_req, res, next) => {
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { timestamp: 'desc' },
+      take: 50,
+    });
+    res.json(logs);
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Register Secure Error Handler
