@@ -131,7 +131,7 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     setIsAiSpeaking(false);
   };
 
-  // Text-To-Speech helper (plays ONLY when mic is NOT recording)
+  // Text-To-Speech helper (plays natural voice with language-appropriate voice selection)
   const speakText = (text: string) => {
     if (isListeningRef.current || isListening) {
       // User is currently speaking or mic is live: do not speak over the user
@@ -139,22 +139,44 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
 
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = isHindi ? 'hi-IN' : 'en-IN';
-      utterance.rate = isElderly ? 0.85 : 0.95;
+      try {
+        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
 
-      utterance.onstart = () => {
-        setIsAiSpeaking(true);
-      };
-      utterance.onend = () => {
-        setIsAiSpeaking(false);
-      };
-      utterance.onerror = () => {
-        setIsAiSpeaking(false);
-      };
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = isHindi ? 'hi-IN' : 'en-IN';
+        utterance.rate = isElderly ? 0.85 : 0.95;
+        utterance.pitch = 1.0;
 
-      window.speechSynthesis.speak(utterance);
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const match = voices.find(
+            (v) =>
+              (isHindi && (v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi') || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('kalpana') || v.name.toLowerCase().includes('hemant'))) ||
+              (!isHindi && (v.lang.startsWith('en-IN') || v.lang.startsWith('en-GB') || v.lang.startsWith('en-US') || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('neerja') || v.name.toLowerCase().includes('prabhat')))
+          );
+          if (match) {
+            utterance.voice = match;
+          }
+        }
+
+        utterance.onstart = () => {
+          setIsAiSpeaking(true);
+        };
+        utterance.onend = () => {
+          setIsAiSpeaking(false);
+        };
+        utterance.onerror = () => {
+          setIsAiSpeaking(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch (ttsErr) {
+        console.warn('SpeechSynthesis error:', ttsErr);
+        setIsAiSpeaking(false);
+      }
     }
   };
 
@@ -319,7 +341,7 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
   };
 
-  // Stop Audio Recording
+  // Stop Audio Recording and auto-submit recognized voice transcript
   const stopAudioRecording = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -344,6 +366,14 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
 
     setIsListening(false);
+
+    // If text was recognized via WebSpeech, automatically send it after a brief pause
+    setTimeout(() => {
+      const textToSubmit = currentInputText.trim();
+      if (textToSubmit && !isTranscribing) {
+        handleSendMessage(textToSubmit, true);
+      }
+    }, 400);
   };
 
   // Convert Audio Blob to Base64 and send to Whisper STT API
@@ -687,12 +717,25 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
                     </div>
                   )}
                   <p>{turn.text}</p>
-                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-black/5 text-[10px] opacity-75">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-black/5 text-[10px] opacity-85">
+                    <span className="flex items-center gap-1 font-semibold">
                       {turn.speaker === 'ai' ? 'AyuMitra AI' : 'You (Patient)'}
-                      {turn.isStt && <span className="bg-emerald-700/50 px-1 rounded text-[9px]">Voice STT</span>}
+                      {turn.isStt && <span className="bg-emerald-700/50 px-1 rounded text-[9px] text-white">Voice STT</span>}
                     </span>
-                    <span>{turn.timestamp}</span>
+                    <div className="flex items-center gap-2">
+                      {turn.speaker === 'ai' && (
+                        <button
+                          type="button"
+                          onClick={() => speakText(turn.text)}
+                          className="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 cursor-pointer bg-white/70 px-1.5 py-0.5 rounded shadow-2xs hover:bg-white"
+                          title="Listen to AI audio"
+                        >
+                          <Volume2 className="w-3 h-3 text-emerald-600" />
+                          <span>{isHindi ? 'सुनें' : 'Listen'}</span>
+                        </button>
+                      )}
+                      <span>{turn.timestamp}</span>
+                    </div>
                   </div>
                 </div>
               </div>
