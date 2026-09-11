@@ -158,174 +158,164 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
     }
   };
 
-  // Setup Browser Web Speech as live interim backup
-  useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = isHindi ? 'hi-IN' : 'en-IN';
-
-        recognition.onresult = (event: any) => {
-          const transcriptText = Array.from(event.results)
-            .map((result: any) => result[0].transcript)
-            .join('');
-          if (transcriptText.trim()) {
-            setCurrentInputText(transcriptText);
-          }
-        };
-
-        recognition.onerror = (e: any) => {
-          console.warn('Interim WebSpeech recognition notice:', e?.error);
-        };
-
-        recognitionRef.current = recognition;
-      } catch {
-        // ignore
-      }
-    }
-  }, [language, isHindi]);
-
-  // Setup and handle Audio Recording with resilient hardware constraints & Web Speech STT
+  // Start Audio Recording with resilient WebSpeech and MediaRecorder decoupling
   const startAudioRecording = async () => {
     // 1. Immediately silence AI speaking
     stopSpeaking();
     setMicPermissionError(null);
     audioChunksRef.current = [];
+    let startedAny = false;
 
-    // Check mediaDevices support
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setMicPermissionError(
-        isHindi
-          ? 'इस ब्राउज़र में ऑडियो रिकॉर्डिंग समर्थित नहीं है। कृपया नीचे बॉक्स में लिखें।'
-          : 'Audio recording is not supported in this browser environment. Please type or use quick options below.'
-      );
-      return;
+    // A. Start Browser Web Speech Recognition (Zero-Latency Native Engine)
+    const SpeechRecognitionClass =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (SpeechRecognitionClass) {
+      try {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.abort();
+          } catch {}
+        }
+
+        const recognition = new SpeechRecognitionClass();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = isHindi ? 'hi-IN' : 'en-IN';
+
+        recognition.onstart = () => {
+          setIsListening(true);
+          setMicPermissionError(null);
+        };
+
+        recognition.onresult = (event: any) => {
+          let fullText = '';
+          for (let i = 0; i < event.results.length; i++) {
+            fullText += event.results[i][0].transcript + ' ';
+          }
+          const trimmed = fullText.trim();
+          if (trimmed) {
+            setCurrentInputText(trimmed);
+          }
+        };
+
+        recognition.onerror = (e: any) => {
+          console.warn('WebSpeech API notice:', e?.error);
+          if (e?.error === 'not-allowed') {
+            setMicPermissionError(
+              isHindi
+                ? 'ब्राउज़र में माइक्रोफ़ोन की अनुमति नहीं है। कृपया URL बार में लॉक आइकॉन पर क्लिक करके "Allow Microphone" चुनें।'
+                : 'Microphone permission blocked. Please click the lock/settings icon in the browser address bar and choose "Allow Microphone".'
+            );
+            setIsListening(false);
+          }
+        };
+
+        recognition.onend = () => {
+          if (isListeningRef.current) {
+            try {
+              recognition.start();
+            } catch {}
+          }
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+        startedAny = true;
+      } catch (speechErr) {
+        console.warn('SpeechRecognition initialization note:', speechErr);
+      }
     }
 
-    try {
-      // Robust getUserMedia with multi-tier constraints fallback
-      let stream: MediaStream;
+    // B. Start MediaRecorder in parallel for high-accuracy Whisper STT (without crashing if unavailable)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-      } catch (constraintErr) {
-        console.warn('Advanced audio constraints rejected, falling back to basic audio:', constraintErr);
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
-
-      mediaStreamRef.current = stream;
-
-      // Start Browser Web Speech Recognition as real-time live STT
-      const SpeechRecognitionClass =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-      if (SpeechRecognitionClass) {
+        let stream: MediaStream;
         try {
-          if (recognitionRef.current) {
-            try { recognitionRef.current.abort(); } catch {}
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+
+        mediaStreamRef.current = stream;
+
+        let recorderOptions: MediaRecorderOptions = {};
+        let chosenMime = 'audio/webm';
+
+        if (typeof MediaRecorder !== 'undefined') {
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+            chosenMime = 'audio/webm;codecs=opus';
+            recorderOptions = { mimeType: chosenMime };
+          } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+            chosenMime = 'audio/webm';
+            recorderOptions = { mimeType: chosenMime };
+          } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            chosenMime = 'audio/mp4';
+            recorderOptions = { mimeType: chosenMime };
           }
 
-          const recognition = new SpeechRecognitionClass();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = isHindi ? 'hi-IN' : 'en-IN';
+          const mediaRecorder = new MediaRecorder(stream, recorderOptions);
+          mediaRecorderRef.current = mediaRecorder;
 
-          recognition.onresult = (event: any) => {
-            let fullText = '';
-            for (let i = 0; i < event.results.length; i++) {
-              fullText += event.results[i][0].transcript + ' ';
-            }
-            const trimmed = fullText.trim();
-            if (trimmed) {
-              setCurrentInputText(trimmed);
+          mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
             }
           };
 
-          recognition.onerror = (e: any) => {
-            console.warn('SpeechRecognition interim event:', e?.error);
+          mediaRecorder.onstop = async () => {
+            if (mediaStreamRef.current) {
+              mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+              mediaStreamRef.current = null;
+            }
+
+            const audioBlob = new Blob(audioChunksRef.current, { type: chosenMime });
+            if (audioBlob.size > 0) {
+              await processAudioWithWhisperStt(audioBlob, chosenMime);
+            } else if (currentInputText.trim()) {
+              await handleSendMessage(currentInputText.trim(), false);
+            }
           };
 
-          recognition.start();
-          recognitionRef.current = recognition;
-        } catch (speechErr) {
-          console.warn('SpeechRecognition initialization note:', speechErr);
+          mediaRecorder.start(250);
+          startedAny = true;
+        }
+      } catch (mediaErr: any) {
+        console.warn('MediaRecorder getUserMedia notice:', mediaErr);
+        if (!startedAny) {
+          const isDenied = mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError';
+          setMicPermissionError(
+            isDenied
+              ? isHindi
+                ? 'माइक्रोफ़ोन की अनुमति अस्वीकृत है। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें या नीचे बॉक्स में लिखें।'
+                : 'Microphone permission was denied. Please allow microphone access in your browser or type symptoms below.'
+              : isHindi
+              ? 'माइक्रोफ़ोन हार्डवेयर उपलब्ध नहीं है। कृपया नीचे दिए गए विकल्पों का उपयोग करें या लिखें।'
+              : 'Microphone hardware is not accessible. Please type symptoms or click quick test chips below.'
+          );
         }
       }
+    }
 
-      // Initialize MediaRecorder for Whisper high-accuracy STT
-      let recorderOptions: MediaRecorderOptions = {};
-      let chosenMime = 'audio/webm';
-
-      if (typeof MediaRecorder !== 'undefined') {
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          chosenMime = 'audio/webm;codecs=opus';
-          recorderOptions = { mimeType: chosenMime };
-        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          chosenMime = 'audio/webm';
-          recorderOptions = { mimeType: chosenMime };
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          chosenMime = 'audio/mp4';
-          recorderOptions = { mimeType: chosenMime };
-        }
-
-        const mediaRecorder = new MediaRecorder(stream, recorderOptions);
-        mediaRecorderRef.current = mediaRecorder;
-
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-        };
-
-        mediaRecorder.onstop = async () => {
-          // Release mic stream tracks cleanly on stop
-          if (mediaStreamRef.current) {
-            mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-            mediaStreamRef.current = null;
-          }
-
-          const audioBlob = new Blob(audioChunksRef.current, { type: chosenMime });
-          if (audioBlob.size > 0) {
-            await processAudioWithWhisperStt(audioBlob, chosenMime);
-          } else if (currentInputText.trim()) {
-            await handleSendMessage(currentInputText.trim(), false);
-          }
-        };
-
-        mediaRecorder.start(250);
-      }
-
+    if (startedAny) {
       setIsListening(true);
       setRecordingSeconds(0);
-
-      // Start duration counter
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = setInterval(() => {
         setRecordingSeconds((sec) => sec + 1);
       }, 1000);
-    } catch (err: any) {
-      console.warn('Microphone access issue:', err);
-      const isDenied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
+    } else if (!micPermissionError) {
       setMicPermissionError(
-        isDenied
-          ? isHindi
-            ? 'माइक्रोफ़ोन की अनुमति अस्वीकृत है। कृपया ब्राउज़र सेटिंग्स में माइक्रोफ़ोन की अनुमति दें या नीचे बॉक्स में टाइप करें।'
-            : 'Microphone permission was denied. Please allow microphone in your browser settings or type symptoms below.'
-          : isHindi
-          ? 'माइक्रोफ़ोन से कनेक्ट नहीं हो सका। कृपया नीचे बॉक्स में अपनी समस्या लिखें।'
-          : 'Could not connect to microphone. Please type your symptoms or use quick options below.'
+        isHindi
+          ? 'माइक्रोफ़ोन शुरू नहीं हो सका। कृपया नीचे दिए गए विकल्पों से अपनी समस्या बताएं।'
+          : 'Microphone could not be activated. Please use quick symptom options below or type your complaint.'
       );
-      setIsListening(false);
     }
   };
 
