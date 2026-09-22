@@ -164,10 +164,10 @@ export const GeneralIntakeScreen: React.FC<GeneralIntakeScreenProps> = ({
           <span>
             {isHindi
               ? currentIdx === GENERAL_QUESTION_BANK.length - 1
-                ? 'पूरा करें'
+                ? 'डॉक्टर चुनें'
                 : 'अगला'
               : currentIdx === GENERAL_QUESTION_BANK.length - 1
-              ? 'Finish'
+              ? 'Choose Doctor'
               : 'Next'}
           </span>
           <ArrowRight className="w-5 h-5" />

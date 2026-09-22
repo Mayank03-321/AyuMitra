@@ -1,5 +1,5 @@
 import React from 'react';
-import { LanguageCode, AccessibilityMode } from '../../types';
+import { LanguageCode, AccessibilityMode, DoctorProfile } from '../../types';
 import { CheckCircle2, ShieldCheck, Clock } from 'lucide-react';
 import { AudioVoiceButton } from '../common/AudioVoiceButton';
 
@@ -7,6 +7,7 @@ interface CompletionScreenProps {
   language: LanguageCode;
   accessibilityMode: AccessibilityMode;
   patientName: string;
+  selectedDoctor?: DoctorProfile | null;
   onReset: () => void;
 }
 
@@ -14,14 +15,20 @@ export const CompletionScreen: React.FC<CompletionScreenProps> = ({
   language,
   accessibilityMode,
   patientName,
+  selectedDoctor,
   onReset,
 }) => {
   const isHindi = language === 'hi';
   const isElderly = accessibilityMode === 'elderly';
 
+  const docName = selectedDoctor
+    ? (isHindi ? selectedDoctor.nameHi : selectedDoctor.name)
+    : (isHindi ? 'डॉ. प्रिया शर्मा' : 'Dr. Priya Sharma');
+  const docRoom = selectedDoctor ? selectedDoctor.roomNumber : 'OPD Room #104';
+
   const audioMessage = isHindi
-    ? `धन्यवाद ${patientName} जी। आपका केस विवरण सफलतापूर्वक दर्ज हो चुका है। आपका टोकन नंबर A-104 है। कृपया ओपीडी कक्ष संख्या 12 के बाहर प्रतीक्षा करें।`
-    : `Thank you ${patientName}. Your clinical history intake is successfully transmitted. Token Number A-104. Please proceed to OPD Room 12.`;
+    ? `धन्यवाद ${patientName} जी। आपका केस विवरण सफलतापूर्वक दर्ज हो चुका है। आपका टोकन नंबर A-104 है। कृपया ${docRoom} के बाहर प्रतीक्षा करें।`
+    : `Thank you ${patientName}. Your clinical history intake is successfully transmitted. Token Number A-104. Please proceed to ${docRoom} for consultation with ${docName}.`;
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 lg:px-6 text-center">
@@ -77,14 +84,14 @@ export const CompletionScreen: React.FC<CompletionScreenProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-slate-400 block mb-0.5">Consulting Physician:</span>
-              <span className="font-bold text-slate-200 text-sm">Dr. Ananya Roy, MD</span>
+              <span className="font-bold text-slate-200 text-sm">{docName}</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Assigned Room:</span>
-              <span className="font-bold text-slate-200 text-sm">OPD Room #12 (Medicine)</span>
+              <span className="font-bold text-slate-200 text-sm">{docRoom}</span>
             </div>
           </div>
         </div>

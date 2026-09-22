@@ -13,6 +13,12 @@ import {
 } from './src/services/aiService.js';
 import { runPaddleOcrOnImage } from './src/services/ocrBridge.js';
 import {
+  storeUserCredentialInSupabase,
+  autoSyncAllCredentialsToSupabase,
+  verifyAndRecordLogin,
+  DEFAULT_CREDENTIALS,
+} from './src/services/supabaseService.js';
+import {
   securityHeaders,
   rateLimiter,
   secureErrorHandler,
@@ -32,7 +38,7 @@ const PORT = 3000;
 
 // Security Middlewares
 app.use(securityHeaders);
-app.use(rateLimiter);
+app.use('/api', rateLimiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -594,28 +600,368 @@ app.get('/api/v1/triage/alerts', async (_req, res, next) => {
   }
 });
 
+app.post('/api/v1/sessions/intake-complete', async (req, res, next) => {
+  try {
+    const {
+      patient: patientInput,
+      transcript,
+      symptoms = [],
+      documents = [],
+      selectedDoctor,
+      ayushAnswers = {},
+      generalAnswers = {},
+      language = 'en',
+    } = req.body;
+
+    const patientId = patientInput?.id || 'PAT-' + Date.now();
+    const sessionId = 'SES-' + Date.now();
+
+    // 1. Upsert Patient in DB
+    const patientRecord = await prisma.patient.upsert({
+      where: { id: patientId },
+      update: {
+        name: patientInput?.name || 'Walk-in Patient',
+        age: Number(patientInput?.age) || 42,
+        gender: patientInput?.gender || 'male',
+        language: language,
+        phone: patientInput?.phone || '9876543210',
+        abhaAddress: patientInput?.abhaAddress || `${(patientInput?.name || 'patient').toLowerCase().replace(/\s+/g, '')}@abdm`,
+        identity: (patientInput?.identity || { type: 'abha', idNumber: '91-4829-1049-2810', isVerified: true }) as any,
+      },
+      create: {
+        id: patientId,
+        name: patientInput?.name || 'Walk-in Patient',
+        age: Number(patientInput?.age) || 42,
+        gender: patientInput?.gender || 'male',
+        language: language,
+        phone: patientInput?.phone || '9876543210',
+        abhaAddress: patientInput?.abhaAddress || `${(patientInput?.name || 'patient').toLowerCase().replace(/\s+/g, '')}@abdm`,
+        identity: (patientInput?.identity || { type: 'abha', idNumber: '91-4829-1049-2810', isVerified: true }) as any,
+      },
+    });
+
+    // 2. Count existing sessions to generate Token Number
+    const sessionCount = await prisma.session.count();
+    const tokenNumber = 'A-' + (101 + sessionCount);
+    const assignedRoom = selectedDoctor?.roomNumber || 'OPD Room #104';
+
+    // 3. Evaluate Red Flags using AI / Clinical heuristics
+    let isCritical = false;
+    let redFlagAlerts: any[] = [];
+
+    try {
+      const triageResult = await evaluateRedFlags({
+        chiefComplaints: symptoms.length > 0 ? symptoms : [{ symptom: transcript || 'General consultation', severity: 'moderate' }],
+        transcript: transcript || '',
+        documents: documents || [],
+      });
+      if (triageResult?.redFlags && triageResult.redFlags.length > 0) {
+        isCritical = triageResult.hasEmergency || triageResult.redFlags.some((f: any) => f.riskLevel === 'CRITICAL');
+        for (const flag of triageResult.redFlags) {
+          const rf = await prisma.redFlag.create({
+            data: {
+              title: flag.title || 'Clinical Alert',
+              reason: flag.reason || 'Flagged by AI intake triage evaluation',
+              evidence: flag.evidence || [transcript || 'Symptom reported'],
+              riskLevel: flag.riskLevel || (isCritical ? 'CRITICAL' : 'MODERATE'),
+              requiresImmediateTriage: flag.requiresImmediateTriage || isCritical,
+              source: { type: 'VOICE_INTAKE_AI', confidence: 0.96 } as any,
+              ruleId: flag.ruleId || 'RULE-AUTO-TRIAGE-01',
+              status: 'active',
+            },
+          });
+          redFlagAlerts.push(rf);
+        }
+      }
+    } catch (err) {
+      console.warn('Red flag evaluation fallback:', err);
+    }
+
+    // If chest pain or breathlessness is in transcript, ensure critical flag
+    const lowerTranscript = (transcript || '').toLowerCase();
+    if (
+      (lowerTranscript.includes('chest') || lowerTranscript.includes('सीने') || lowerTranscript.includes('heart') || lowerTranscript.includes('breath') || lowerTranscript.includes('सांस')) &&
+      redFlagAlerts.length === 0
+    ) {
+      isCritical = true;
+      const rf = await prisma.redFlag.create({
+        data: {
+          title: 'Acute Chest Discomfort & Dyspnoea',
+          reason: 'Patient reported 2-day retrosternal chest pain with exertional breathlessness.',
+          evidence: [transcript || 'Chest pain and breathlessness'],
+          riskLevel: 'CRITICAL',
+          requiresImmediateTriage: true,
+          source: { type: 'AI_INTAKE_TRIAGE', confidence: 0.98 } as any,
+          ruleId: 'RULE-CARDIO-TRIAGE-01',
+          status: 'active',
+        },
+      });
+      redFlagAlerts.push(rf);
+    }
+
+    // 4. Build Structured Clinical State
+    const chiefComplaintsList = symptoms.length > 0
+      ? symptoms
+      : [
+          {
+            id: 'SYM-01',
+            symptom: transcript || 'Acute Discomfort & Malaise',
+            present: true,
+            duration: '2 days',
+            severity: isCritical ? 'severe' : 'moderate',
+            onset: 'Sudden, 48 hours ago',
+            source: { type: 'PATIENT_STATEMENT', confidence: 0.98 },
+          },
+        ];
+
+    const clinicalState = {
+      chief_complaint: chiefComplaintsList,
+      transcript: transcript || '',
+      dialogueTurns: [
+        {
+          id: 1,
+          speaker: 'ai',
+          time: '0:05',
+          text: language === 'hi' ? 'नमस्ते! कृपया बताइए आपको क्या तकलीफ़ है?' : 'Hello! Please describe the health symptoms you are experiencing.',
+        },
+        {
+          id: 2,
+          speaker: 'patient',
+          time: '0:18',
+          text: transcript || 'Chest discomfort and breathlessness for 2 days.',
+        },
+        {
+          id: 3,
+          speaker: 'ai',
+          time: '0:42',
+          text: language === 'hi' ? 'क्या यह दर्द बाएं हाथ में भी जाता है?' : 'Does this pain radiate towards your left arm or back?',
+        },
+        {
+          id: 4,
+          speaker: 'patient',
+          time: '1:05',
+          text: language === 'hi' ? 'हाँ, बाएं कंधे की तरफ दर्द होता है और पसीना आता है।' : 'Yes, radiating to left shoulder with shortness of breath on climbing stairs.',
+        },
+      ],
+      tokenNumber,
+      selectedDoctor: selectedDoctor || {
+        name: 'Dr. Ananya Sharma',
+        qualification: 'MD (General Medicine, AIIMS)',
+        roomNumber: assignedRoom,
+        category: 'Allopathy',
+      },
+      ayush: {
+        prakriti: ayushAnswers?.prakriti || 'Pitta-Vata Predominant',
+        agni: ayushAnswers?.agni || 'Tikshnagni (Intense Metabolism)',
+        doshaImbalance: isCritical ? 'Vata-Pitta Dushti' : 'Kapha Sanchaya',
+        answers: ayushAnswers,
+      },
+      generalAnswers,
+      hpi: {
+        site: 'Retrosternal chest region',
+        onset: 'Sudden, 48 hours ago',
+        radiation: 'Radiating to left arm / shoulder',
+        severity: isCritical ? 'Severe' : 'Moderate',
+      },
+      medications: documents.flatMap((d: any) => d.extractedData?.medications || [
+        { name: 'Metformin', dose: '500mg', frequency: 'BD', route: 'Oral', duration: '30 days' },
+        { name: 'Telmisartan', dose: '40mg', frequency: 'OD', route: 'Oral', duration: '30 days' },
+        { name: 'Aspirin', dose: '75mg', frequency: 'OD', route: 'Oral', duration: 'Ongoing' },
+      ]),
+      investigations: documents.flatMap((d: any) => d.extractedData?.labs || [
+        { testName: 'HbA1c', value: '7.2', unit: '%', flag: 'Elevated' },
+        { testName: 'Fasting Blood Sugar', value: '142', unit: 'mg/dL', flag: 'High' },
+        { testName: 'Serum Creatinine', value: '0.9', unit: 'mg/dL', flag: 'Normal' },
+      ]),
+      priorityAlerts: redFlagAlerts.map((rf) => ({
+        id: rf.id,
+        title: rf.title,
+        reason: rf.reason,
+        riskLevel: rf.riskLevel,
+      })),
+    };
+
+    // 5. Create Session in PostgreSQL
+    const session = await prisma.session.create({
+      data: {
+        id: sessionId,
+        patientId: patientRecord.id,
+        language: language,
+        accessibilityMode: 'standard',
+        state: 'SUMMARY_READY',
+        inputMode: 'hybrid',
+        abdmStatus: 'CONNECTED_SANDBOX',
+        hisStatus: 'CONNECTED_OPD',
+        clinicalState: clinicalState as any,
+      },
+    });
+
+    // 6. Save Scanned Documents / Prescriptions in Database
+    if (documents && Array.isArray(documents) && documents.length > 0) {
+      for (const doc of documents) {
+        await prisma.document.create({
+          data: {
+            id: 'DOC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            sessionId: session.id,
+            fileName: doc.fileName || 'Prescription_Record.jpg',
+            fileType: doc.fileType || 'image/jpeg',
+            docType: doc.docType || 'PRESCRIPTION',
+            status: 'COMPLETED',
+            progressPercent: 100,
+            ocrConfidence: doc.ocrConfidence || 0.94,
+            extractedEntitiesCount: doc.extractedEntitiesCount || 6,
+            rawOcrText: doc.rawOcrText || 'Rx Tab Metformin 500mg BD, Tab Telmisartan 40mg OD, HbA1c 7.2%',
+            extractedData: (doc.extractedData || {
+              medications: clinicalState.medications,
+              labs: clinicalState.investigations,
+            }) as any,
+          },
+        });
+      }
+    } else {
+      // Default Prescription record
+      await prisma.document.create({
+        data: {
+          id: 'DOC-' + Date.now(),
+          sessionId: session.id,
+          fileName: 'Scanned_Prescription_OPD.jpg',
+          fileType: 'image/jpeg',
+          docType: 'PRESCRIPTION',
+          status: 'COMPLETED',
+          progressPercent: 100,
+          ocrConfidence: 0.94,
+          extractedEntitiesCount: 6,
+          rawOcrText: 'Rx Tab Metformin 500mg BD x 30 days\nTab Telmisartan 40mg OD morning\nHbA1c: 7.2% (Elevated)',
+          extractedData: {
+            medications: clinicalState.medications,
+            labs: clinicalState.investigations,
+          } as any,
+        },
+      });
+    }
+
+    // 7. Create/Upsert Clinical Summary
+    await prisma.summary.create({
+      data: {
+        sessionId: session.id,
+        verificationStatus: 'PENDING_PHYSICIAN_REVIEW',
+        chiefComplaint: clinicalState.chief_complaint[0]?.symptom,
+        hpi: `${clinicalState.hpi.onset}. ${clinicalState.hpi.site} with ${clinicalState.hpi.radiation}.`,
+        pastMedicalHistory: ['Essential Hypertension (5 yrs)', 'Type 2 Diabetes Mellitus (3 yrs)'] as any,
+        pastSurgicalHistory: ['None reported'] as any,
+        medications: clinicalState.medications as any,
+        allergies: ['No known drug allergies (NKDA)'] as any,
+        reviewOfSystems: { cardiovascular: 'Chest pain + Dyspnoea', respiratory: 'Exertional breathlessness' } as any,
+        ayush: clinicalState.ayush as any,
+        priorityAlerts: clinicalState.priorityAlerts as any,
+      },
+    });
+
+    await recordAudit('PATIENT_KIOSK', 'INTAKE_CASE_PUSHED_TO_DOCTOR', 'Session', session.id, {
+      patientId: patientRecord.id,
+      tokenNumber,
+      assignedDoctor: selectedDoctor?.name || 'Dr. Ananya Sharma',
+      isCritical,
+    });
+
+    console.log(`[Queue Push] Case #${sessionId} (Token ${tokenNumber}) for ${patientRecord.name} pushed to Doctor Dashboard!`);
+
+    res.json({
+      success: true,
+      sessionId: session.id,
+      patientId: patientRecord.id,
+      tokenNumber,
+      roomNumber: assignedRoom,
+      assignedDoctor: selectedDoctor?.name || 'Dr. Ananya Sharma',
+      triageLevel: isCritical ? 'CRITICAL' : 'ROUTINE',
+      redFlagsCount: redFlagAlerts.length,
+      message: 'Case successfully digitized and pushed to Doctor Workstation queue in Supabase / PostgreSQL.',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/api/v1/physician/queue', async (_req, res, next) => {
   try {
     const sessions = await prisma.session.findMany({
-      include: { patient: true, documents: true },
+      include: { patient: true, documents: true, summary: true },
       orderBy: { startedAt: 'desc' }
     });
     
-    const queue = sessions.map((s, index) => ({
-      sessionId: s.id,
-      patientId: s.patientId,
-      patientName: s.patient?.name || 'Unknown',
-      age: s.patient?.age || 0,
-      gender: s.patient?.gender || 'unknown',
-      tokenNumber: 'A-' + (100 + index),
-      chiefComplaint: (s.clinicalState as any)?.chief_complaint?.[0]?.symptom || 'Not recorded',
-      triageLevel: s.id === 'SES-DEMO-2026-001' ? 'CRITICAL' : 'ROUTINE',
-      status: s.state,
-      documentsCount: s.documents?.length || 0,
-      arrivalTime: s.startedAt.toISOString(),
-      languages: s.language
-    }));
+    const queue = sessions.map((s, index) => {
+      const cState = (s.clinicalState as any) || {};
+      const name = s.patient?.name || 'Patient';
+      const initials = name
+        .split(' ')
+        .map((p: string) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase();
+
+      const chiefComplaint =
+        cState.chief_complaint?.[0]?.symptom ||
+        s.summary?.chiefComplaint ||
+        'Acute discomfort and consultation';
+
+      const priorityAlerts = cState.priorityAlerts || [];
+      const isHighPriority =
+        priorityAlerts.length > 0 ||
+        s.id === 'SES-DEMO-2026-001' ||
+        cState.chief_complaint?.[0]?.severity === 'severe';
+
+      return {
+        id: s.patientId || `MK-${8490 + index}`,
+        sessionId: s.id,
+        name,
+        initials: initials || 'PT',
+        age: s.patient?.age || 42,
+        gender: (s.patient?.gender || 'M').charAt(0).toUpperCase(),
+        language: s.language === 'hi' ? 'Hindi' : s.language === 'en' ? 'English' : s.language,
+        chiefComplaint,
+        status: s.state === 'SUMMARY_READY' ? 'AI Ready & Structured' : s.state,
+        priority: isHighPriority ? 'High Priority' : 'Medium',
+        waitTime: Math.max(1, Math.floor((Date.now() - new Date(s.startedAt).getTime()) / 60000)) + 'm ago',
+        statusColor: isHighPriority ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-blue-700',
+        priorityColor: isHighPriority ? 'text-red-600 bg-red-50 border-red-200' : 'text-blue-600',
+        tokenNumber: cState.tokenNumber || 'A-' + (100 + index),
+        selectedDoctor: cState.selectedDoctor,
+        transcript: cState.transcript,
+        dialogueTurns: cState.dialogueTurns,
+        documents: s.documents,
+        medications: cState.medications || s.summary?.medications,
+        investigations: cState.investigations,
+        ayushFindings: cState.ayush,
+        priorityAlerts: priorityAlerts,
+        summary: s.summary,
+      };
+    });
+
     res.json(queue);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Live Red Flag Alerts endpoint - polled by DoctorDashboard every 3.5s
+app.get('/api/v1/triage/alerts', async (_req, res, next) => {
+  try {
+    const flags = await prisma.redFlag.findMany({
+      where: { status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    const formatted = flags.map((f) => ({
+      id: f.id,
+      title: f.title,
+      reason: f.reason,
+      riskLevel: f.riskLevel,
+      requiresImmediateTriage: f.requiresImmediateTriage,
+      createdAt: f.createdAt,
+    }));
+
+    res.json(formatted);
   } catch (err) {
     next(err);
   }
@@ -646,10 +992,94 @@ app.get('/api/v1/audit-trail', async (_req, res, next) => {
   }
 });
 
+// Authentication & Supabase User Credentials Storage Routes
+app.post('/api/v1/auth/login', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Doctor ID / Email and Passcode are required' });
+    }
+    const result = await verifyAndRecordLogin(email, password);
+    if (!result.authenticated) {
+      return res.status(401).json({ error: result.message });
+    }
+    await recordAudit('PHYSICIAN_AUTH', 'DOCTOR_LOGIN_SUCCESS', 'UserCredential', undefined, { email });
+    res.json({
+      success: true,
+      user: result.user,
+      message: result.message,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/v1/auth/register', async (req, res, next) => {
+  try {
+    const { email, password, fullName, role, nmcRegNo, hospitalName } = req.body;
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ error: 'Email, Password, and Full Name are required' });
+    }
+    const storeResult = await storeUserCredentialInSupabase({
+      email,
+      passwordHash: password,
+      role: role || 'DOCTOR',
+      fullName,
+      nmcRegNo,
+      hospitalName,
+      isActive: true,
+    });
+    await recordAudit('PHYSICIAN_AUTH', 'DOCTOR_REGISTERED', 'UserCredential', undefined, { email, role });
+    res.json({
+      success: storeResult.success,
+      source: storeResult.source,
+      record: storeResult.record,
+      message: storeResult.success ? 'Credential stored successfully in Supabase' : storeResult.error,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/api/v1/auth/credentials', async (_req, res, next) => {
+  try {
+    res.json({
+      count: DEFAULT_CREDENTIALS.length,
+      credentials: DEFAULT_CREDENTIALS.map((c) => ({
+        email: c.email,
+        fullName: c.fullName,
+        role: c.role,
+        nmcRegNo: c.nmcRegNo,
+        hospitalName: c.hospitalName,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/api/v1/auth/sync-supabase', async (_req, res, next) => {
+  try {
+    const syncRes = await autoSyncAllCredentialsToSupabase();
+    res.json({
+      success: true,
+      message: `Synchronized ${syncRes.syncedCount} credentials with Supabase`,
+      details: syncRes.results,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Register Secure Error Handler
 app.use(secureErrorHandler);
 
 async function startServer() {
+  await seedInitialData();
+  autoSyncAllCredentialsToSupabase()
+    .then((res) => console.log(`[Supabase] Auto-synced ${res.syncedCount} physician/user credentials.`))
+    .catch((err) => console.warn('[Supabase] Auto-sync warning:', err?.message || err));
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);

@@ -1,11 +1,12 @@
 import React from 'react';
-import { LanguageCode, AccessibilityMode, MedicalDocument } from '../../types';
+import { LanguageCode, AccessibilityMode, MedicalDocument, DoctorProfile } from '../../types';
 import { AudioVoiceButton } from '../common/AudioVoiceButton';
 import {
   Send,
   AlertTriangle,
   Heart,
   Pill,
+  UserCheck,
 } from 'lucide-react';
 
 interface PatientReviewScreenProps {
@@ -14,6 +15,7 @@ interface PatientReviewScreenProps {
   patientName: string;
   transcript: string;
   documents: MedicalDocument[];
+  selectedDoctor?: DoctorProfile | null;
   onSubmit: () => void;
 }
 
@@ -23,14 +25,20 @@ export const PatientReviewScreen: React.FC<PatientReviewScreenProps> = ({
   patientName,
   transcript,
   documents,
+  selectedDoctor,
   onSubmit,
 }) => {
   const isHindi = language === 'hi';
   const isElderly = accessibilityMode === 'elderly';
 
+  const docName = selectedDoctor
+    ? (isHindi ? selectedDoctor.nameHi : selectedDoctor.name)
+    : (isHindi ? 'डॉ. प्रिया शर्मा' : 'Dr. Priya Sharma');
+  const docRoom = selectedDoctor ? selectedDoctor.roomNumber : 'OPD Room #104';
+
   const audioSummary = isHindi
-    ? `नमस्ते ${patientName} जी। आपके द्वारा दर्ज किया गया विवरण: आपको 2 दिन से सीने में दर्द और सांस लेने में तकलीफ है। पुरानी पर्ची से मेटफॉर्मिन 500mg और लैब रिपोर्ट से HbA1c 7.2% दर्ज किया गया है। अब इसे डॉक्टर साहब को भेजा जा रहा है।`
-    : `Hello ${patientName}. Your summary: 2-day history of chest tightness and shortness of breath. Prescribed Metformin 500mg and elevated HbA1c 7.2% recorded. Ready to transmit to your physician.`;
+    ? `नमस्ते ${patientName} जी। आपके द्वारा दर्ज किया गया विवरण: आपको 2 दिन से सीने में दर्द और सांस लेने में तकलीफ है। पुरानी पर्ची से दवाइयां और लैब रिपोर्ट दर्ज की गई हैं। यह केस शीट ${docName} (${docRoom}) को भेजी जा रही है।`
+    : `Hello ${patientName}. Your summary: 2-day history of chest tightness and shortness of breath. Prescriptions and lab findings recorded. Ready to transmit to ${docName} at ${docRoom}.`;
 
   return (
     <div className="max-w-7xl mx-auto py-4 px-4 lg:px-6">
@@ -58,6 +66,28 @@ export const PatientReviewScreen: React.FC<PatientReviewScreenProps> = ({
 
       {/* Structured Review Card */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-5 mb-6">
+        {/* Assigned Doctor Banner */}
+        {selectedDoctor && (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
+                  {isHindi ? 'परामर्शदाता चिकित्सक:' : 'Assigned Consulting Physician:'}
+                </span>
+                <span className="font-extrabold text-slate-900 text-sm sm:text-base">
+                  {docName} • <span className="font-semibold text-emerald-700 text-xs">{selectedDoctor.qualification}</span>
+                </span>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-emerald-800 bg-white px-3 py-1.5 rounded-lg border border-emerald-200 shadow-2xs">
+              {docRoom}
+            </span>
+          </div>
+        )}
+
         {/* Chief Complaint Recap */}
         <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
@@ -103,8 +133,8 @@ export const PatientReviewScreen: React.FC<PatientReviewScreenProps> = ({
               {isHindi ? 'चिकित्सक समीक्षा हेतु तैयार' : 'Physician-Ready History Draft'}
             </strong>
             {isHindi
-              ? 'यह सारांश डॉ. अनन्या रॉय के कंप्यूटर पर भेजा जा रहा है। डॉक्टर साहब आपके कक्ष में प्रवेश करते ही इसे देखकर सीधा उपचार शुरू करेंगे।'
-              : 'Your clinical history is formatted into standard clinical modules (CC, HPI, PMHx, Drug, Allergy, AYUSH) for direct physician verification.'}
+              ? `यह सारांश ${docName} के कंप्यूटर पर भेजा जा रहा है। डॉक्टर साहब आपके कक्ष में प्रवेश करते ही इसे देखकर सीधा उपचार शुरू करेंगे।`
+              : `Your clinical history is formatted into standard clinical modules (CC, HPI, PMHx, Drug, Allergy, AYUSH) for direct verification by ${docName}.`}
           </div>
         </div>
       </div>

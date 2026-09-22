@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Radio,
   Zap,
+  Smartphone,
 } from 'lucide-react';
 
 interface DialogueTurn {
@@ -29,8 +30,9 @@ interface DialogueTurn {
 interface ChiefComplaintScreenProps {
   language: LanguageCode;
   accessibilityMode: AccessibilityMode;
-  onContinue: (transcript: string, entities: SymptomEntity[], method: 'voice' | 'touch') => void;
+  onContinue: (transcript: string, entities: SymptomEntity[], method?: 'voice' | 'touch') => void;
   onProceedToOcr?: (transcript: string, entities: SymptomEntity[]) => void;
+  onSwitchToTouch?: () => void;
 }
 
 export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
@@ -38,6 +40,7 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
   accessibilityMode,
   onContinue,
   onProceedToOcr,
+  onSwitchToTouch,
 }) => {
   const isHindi = language === 'hi';
   const isElderly = accessibilityMode === 'elderly';
@@ -590,6 +593,17 @@ export const ChiefComplaintScreen: React.FC<ChiefComplaintScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
+          {onSwitchToTouch && (
+            <button
+              type="button"
+              onClick={onSwitchToTouch}
+              className="px-3 py-1.5 rounded-xl border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+              <span>{isHindi ? 'टच मोड पर जाएं' : 'Switch to Touch'}</span>
+            </button>
+          )}
+
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
             <Zap className="w-3.5 h-3.5 text-emerald-600" />
             <span>Whisper Large v3 STT</span>

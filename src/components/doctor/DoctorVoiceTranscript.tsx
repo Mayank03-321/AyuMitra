@@ -80,6 +80,39 @@ export const DoctorVoiceTranscript: React.FC<DoctorVoiceTranscriptProps> = ({
     },
   ];
 
+  const activeTurns = (patient as any).dialogueTurns && Array.isArray((patient as any).dialogueTurns) && (patient as any).dialogueTurns.length > 0
+    ? (patient as any).dialogueTurns.map((t: any) => ({
+        id: t.id,
+        speaker: t.speaker,
+        time: t.time || '0:10',
+        hindi: t.hindi || t.text,
+        english: t.english || t.text,
+        confidence: t.confidence || 0.98,
+        entities: t.entities || (t.speaker === 'patient' ? ['Patient Intake', 'Chief Complaint'] : ['AI Intake Prompt']),
+      }))
+    : ((patient as any).transcript)
+    ? [
+        {
+          id: 1,
+          speaker: 'ai',
+          time: '0:05',
+          hindi: 'नमस्ते! मैं आपका आयुमित्र AI सहायक हूँ। कृपया बताइए आपको क्या तकलीफ़ है?',
+          english: 'Hello! I am your AyuMitra AI assistant. Please describe what health symptoms you are experiencing?',
+          confidence: 0.99,
+          entities: ['Greeting', 'Intake Prompt'],
+        },
+        {
+          id: 2,
+          speaker: 'patient',
+          time: '0:18',
+          hindi: (patient as any).transcript,
+          english: (patient as any).transcript,
+          confidence: 0.98,
+          entities: ['Chief Complaint', 'Primary Symptom Intake'],
+        },
+      ]
+    : turns;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Top Patient Audio Header */}
@@ -172,7 +205,7 @@ export const DoctorVoiceTranscript: React.FC<DoctorVoiceTranscriptProps> = ({
 
       {/* Main Turn-by-Turn Bilingual Dialogue Feed */}
       <div className="space-y-4">
-        {turns.map((turn) => (
+        {activeTurns.map((turn: any) => (
           <div
             key={turn.id}
             className={`card-glass rounded-3xl p-5 border shadow-xs transition-all ${

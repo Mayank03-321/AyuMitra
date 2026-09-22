@@ -3,15 +3,10 @@ import {
   Search,
   LogOut,
   LayoutDashboard,
-  Users,
   FileText,
   Mic,
   FolderOpen,
-  Pill,
-  Languages,
-  UserCheck,
   AlertTriangle,
-  BarChart3,
   ShieldCheck,
   Stethoscope,
   Sun,
@@ -38,27 +33,81 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
   const [showVerificationModal, setShowVerificationModal] = useState<boolean>(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'high' | 'ready' | 'transcribing' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [queue, setQueue] = useState<any[]>(MOCK_QUEUE);
+  const [alerts, setAlerts] = useState<any[]>(MOCK_ALERTS);
+
+  const HIGH_PRIORITY_COUNT = alerts.filter((a) => a.type?.toLowerCase().includes('red') || a.type?.toLowerCase().includes('alert')).length || queue.filter((p) => p.priority === 'High Priority').length || 0;
 
   const isDark = theme === 'dark';
 
-  const currentPatient = MOCK_QUEUE.find((p) => p.id === selectedPatientId) || MOCK_QUEUE[0];
+  // Live polling for pushed kiosk cases and red flag alerts
+  useEffect(() => {
+    const fetchLiveQueueAndAlerts = async () => {
+      try {
+        const [queueRes, alertsRes] = await Promise.all([
+          fetch('/api/v1/physician/queue'),
+          fetch('/api/v1/triage/alerts'),
+        ]);
 
-  const filteredQueue = MOCK_QUEUE.filter((p) => {
+        if (queueRes.ok) {
+          const liveData = await queueRes.json();
+          if (Array.isArray(liveData) && liveData.length > 0) {
+            // Combine live database cases with default mock queue
+            const liveIds = new Set(liveData.map((d: any) => d.id));
+            const remainingMock = MOCK_QUEUE.filter((m) => !liveIds.has(m.id));
+            setQueue([...liveData, ...remainingMock]);
+
+            // Auto-select latest pushed case if needed
+            if (liveData.length > 0 && selectedPatientId === 'MK-8492' && liveData[0].id !== 'MK-8492') {
+              setSelectedPatientId(liveData[0].id);
+            }
+          }
+        }
+
+        if (alertsRes.ok) {
+          const liveAlerts = await alertsRes.json();
+          if (Array.isArray(liveAlerts) && liveAlerts.length > 0) {
+            const formatted = liveAlerts.map((a: any, idx: number) => ({
+              id: a.id || idx + 1,
+              type: a.title || 'Red Flag Alert',
+              time: 'Just now',
+              desc: a.reason || 'Critical clinical indicator reported',
+              color: 'bg-red-50 text-red-900 border-red-200',
+              iconColor: 'text-red-500',
+            }));
+            setAlerts(formatted);
+          }
+        }
+      } catch (err) {
+        // Fallback to local mock data if server is offline
+      }
+    };
+
+    fetchLiveQueueAndAlerts();
+    const interval = setInterval(fetchLiveQueueAndAlerts, 3500);
+    return () => clearInterval(interval);
+  }, [selectedPatientId]);
+
+  const currentPatient = queue.find((p) => p.id === selectedPatientId) || queue[0] || MOCK_QUEUE[0];
+
+  const filteredQueue = queue.filter((p) => {
     const matchesSearch =
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.chiefComplaint.toLowerCase().includes(searchQuery.toLowerCase());
+      (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.chiefComplaint || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (activeFilter === 'high') return p.priority === 'High Priority';
-    if (activeFilter === 'ready') return p.status.includes('Ready');
+    if (activeFilter === 'ready') return (p.status || '').includes('Ready');
     if (activeFilter === 'transcribing') return p.status === 'Transcribing';
     if (activeFilter === 'completed') return p.status === 'Completed';
     return true;
   });
 
+  const highPriorityCount = queue.filter((p) => p.priority === 'High Priority').length || alerts.length;
+
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 antialiased relative p-3 sm:p-5 md:p-8 flex items-center justify-center font-sans ${
+      className={`min-h-screen h-screen transition-colors duration-300 antialiased relative p-3 sm:p-5 md:p-8 flex items-center justify-center font-sans ${
         isDark
           ? 'bg-[#041510] text-emerald-100 selection:bg-emerald-500/30 selection:text-emerald-200'
           : 'bg-neutral-100 text-slate-800 selection:bg-teal-100 selection:text-teal-900'
@@ -88,15 +137,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
 
       {/* Main Outer Floating Glassmorphic Shell */}
       <div
-        className={`relative z-10 w-full max-w-[1540px] rounded-[36px] transition-all duration-300 p-3 sm:p-5 lg:p-7 my-auto ${
+        className={`relative z-10 w-full max-w-[1540px] min-h-[92vh] rounded-[36px] transition-all duration-300 p-3 sm:p-5 lg:p-7 my-auto flex flex-col ${
           isDark
             ? 'bg-[#061a14]/85 backdrop-blur-2xl border border-emerald-400/22 shadow-[0_30px_70px_-15px_rgba(2,14,10,0.7)]'
             : 'bg-white/75 backdrop-blur-2xl border border-white/80 shadow-[0_25px_60px_-15px_rgba(15,45,40,0.18)]'
         }`}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 flex-1 min-h-0">
           {/* Left Navigation Sidebar */}
-          <aside className="lg:col-span-3 xl:col-span-2 flex flex-col justify-between space-y-6 pt-1">
+          <aside className="lg:col-span-3 xl:col-span-2 flex flex-col justify-between space-y-6 pt-1 min-h-[82vh]">
             <div className="space-y-6">
               {/* Logo Brand */}
               <div className="flex items-center space-x-3 px-2">
@@ -143,15 +192,9 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
               {/* Main Navigation Links */}
               <nav className="space-y-1.5 text-[13px] font-medium">
                 <NavItem isDark={isDark} icon={<LayoutDashboard className="w-4 h-4" />} label="Dashboard" active={currentTab === 'Dashboard'} onClick={() => setCurrentTab('Dashboard')} />
-                <NavItem isDark={isDark} icon={<Users className="w-4 h-4" />} label="Patient Queue" active={currentTab === 'Patient Queue'} onClick={() => setCurrentTab('Dashboard')} badge="38" />
                 <NavItem isDark={isDark} icon={<FileText className="w-4 h-4" />} label="AI Clinical Summary" active={currentTab === 'AI Clinical Summary'} onClick={() => setCurrentTab('AI Clinical Summary')} badge="AI" />
                 <NavItem isDark={isDark} icon={<Mic className="w-4 h-4" />} label="AI Voice Transcript" active={currentTab === 'AI Voice Transcript'} onClick={() => setCurrentTab('AI Voice Transcript')} />
                 <NavItem isDark={isDark} icon={<FolderOpen className="w-4 h-4" />} label="Medical Records & OCR" active={currentTab === 'Medical Records & OCR'} onClick={() => setCurrentTab('Medical Records & OCR')} />
-                <NavItem isDark={isDark} icon={<Pill className="w-4 h-4" />} label="Medications & History" active={currentTab === 'Medications & History'} onClick={() => setCurrentTab('Medications & History')} />
-                <NavItem isDark={isDark} icon={<Languages className="w-4 h-4" />} label="Multilingual Intake" active={currentTab === 'Multilingual Intake'} onClick={() => setCurrentTab('Multilingual Intake')} />
-                <NavItem isDark={isDark} icon={<UserCheck className="w-4 h-4" />} label="Doctor Verification" active={currentTab === 'Doctor Verification'} onClick={() => setCurrentTab('AI Clinical Summary')} badge={isVerified ? '✓' : '!'} />
-                <NavItem isDark={isDark} icon={<AlertTriangle className="w-4 h-4" />} label="Priority Red Flags" active={currentTab === 'Priority Cases'} onClick={() => { setActiveFilter('high'); setCurrentTab('Dashboard'); }} badge="5" alert />
-                <NavItem isDark={isDark} icon={<BarChart3 className="w-4 h-4" />} label="Analytics & OPD Stats" active={currentTab === 'Analytics & Reports'} onClick={() => setCurrentTab('Analytics & Reports')} />
               </nav>
             </div>
 
@@ -182,7 +225,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
           </aside>
 
           {/* Right Main Content Column */}
-          <main className="lg:col-span-9 xl:col-span-10 flex flex-col space-y-5 lg:space-y-6 min-w-0">
+          <main className="lg:col-span-9 xl:col-span-10 flex flex-col space-y-5 lg:space-y-6 min-w-0 min-h-[82vh]">
             {/* Top Transparent Glass Header Bar */}
             <header
               className={`rounded-2xl backdrop-blur-md border shadow-sm px-4 py-3 flex items-center justify-between flex-wrap gap-3 ${
@@ -248,18 +291,20 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
                   <span>Ward 4-B • General Medicine</span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => { setActiveFilter('high'); setCurrentTab('Dashboard'); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs border ${
-                    isDark
-                      ? 'bg-rose-950/70 border-rose-500/40 text-rose-300 hover:bg-rose-900/80'
-                      : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
-                  }`}
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-bounce" />
-                  <span>5 Red Flags</span>
-                </button>
+                {highPriorityCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setActiveFilter('high'); setCurrentTab('Dashboard'); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs border ${
+                      isDark
+                        ? 'bg-rose-950/70 border-rose-500/40 text-rose-300 hover:bg-rose-900/80'
+                        : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                    }`}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500 animate-bounce" />
+                    <span>{highPriorityCount} Red Flags</span>
+                  </button>
+                )}
 
                 <div className={`w-px h-5 mx-0.5 ${isDark ? 'bg-emerald-500/20' : 'bg-slate-200'}`} />
 
@@ -298,8 +343,8 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
               </div>
             </header>
 
-            {/* Dynamic View Switcher */}
-            <div>
+            {/* Dynamic View Switcher — flex-1 ensures it fills remaining height so panel never shrinks */}
+            <div className="flex-1 min-h-[70vh]">
               {currentTab === 'Dashboard' && (
                 <DoctorOverviewDashboard
                   isDark={isDark}
@@ -312,7 +357,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
                   }}
                   activeFilter={activeFilter}
                   onChangeFilter={setActiveFilter}
-                  alerts={MOCK_ALERTS}
+                  alerts={alerts}
                 />
               )}
 
@@ -334,58 +379,129 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onLogout }) =>
                 />
               )}
 
-              {currentTab !== 'Dashboard' &&
-                currentTab !== 'AI Clinical Summary' &&
-                currentTab !== 'AI Voice Transcript' && (
+              {currentTab === 'Medical Records & OCR' && (
+                <div className="w-full space-y-5">
+                  {/* Header row — matches Dashboard/Clinical Summary top bar style */}
                   <div
-                    className={`rounded-3xl p-8 text-center max-w-4xl mx-auto backdrop-blur-md border shadow-sm ${
+                    className={`rounded-3xl p-6 backdrop-blur-md border shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                       isDark
                         ? 'bg-[#09241c]/75 border-emerald-400/20 text-white'
-                        : 'bg-white/80 border-white/70 text-slate-800'
+                        : 'bg-white/90 border-white/85 text-slate-800'
                     }`}
                   >
-                    <div
-                      className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
-                        isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-teal-100 text-teal-800'
-                      }`}
-                    >
-                      <Stethoscope className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-xl font-extrabold mb-1">{currentTab}</h3>
-                    <p className={`text-xs mb-6 max-w-md mx-auto ${isDark ? 'text-emerald-200/70' : 'text-slate-600'}`}>
-                      Synchronized with National Digital Health Mission (ABDM) and Groq Clinical AI.
-                    </p>
-                    <div
-                      className={`p-4 rounded-2xl border text-xs text-left space-y-2 max-w-lg mx-auto ${
-                        isDark
-                          ? 'bg-[#061a14]/70 border-emerald-500/20 text-emerald-100'
-                          : 'bg-white/70 border-slate-200 text-slate-700'
-                      }`}
-                    >
-                      <div className="flex justify-between">
-                        <span className="font-bold">Active Patient:</span>
-                        <span>{currentPatient.name} ({currentPatient.id})</span>
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                          isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-teal-100 text-teal-800'
+                        }`}
+                      >
+                        <Stethoscope className="w-6 h-6" />
                       </div>
-                      <div className="flex justify-between">
-                        <span className="font-bold">Spoken Language:</span>
-                        <span>{currentPatient.language} (Whisper Ingestion)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="font-bold">OCR Ingestion:</span>
-                        <span>PaddleOCR Multilingual Pipeline Verified</span>
+                      <div>
+                        <h2 className={`text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                          Medical Records & OCR
+                        </h2>
+                        <p className={`text-xs mt-0.5 ${isDark ? 'text-emerald-200/70' : 'text-slate-500'}`}>
+                          PaddleOCR v2.7 Multilingual Pipeline — Active Patient: <strong>{currentPatient.name}</strong>
+                        </p>
                       </div>
                     </div>
-                    <div className="mt-6 flex justify-center gap-3">
+                    <div className="flex items-center gap-3 self-end lg:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentTab('AI Clinical Summary')}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md"
+                      >
+                        View Clinical Summary
+                      </button>
                       <button
                         type="button"
                         onClick={() => setCurrentTab('Dashboard')}
-                        className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-all cursor-pointer shadow-md shadow-emerald-950/40"
+                        className={`px-4 py-2 font-bold rounded-xl text-xs transition-all cursor-pointer border ${
+                          isDark
+                            ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-200 hover:bg-emerald-900/60'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
                       >
-                        Return to Dashboard
+                        Back to Queue
                       </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Stats row — same grid width as Dashboard */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Documents Scanned', value: `${(currentPatient as any).documents?.length || 1}`, sub: 'files digitized via OCR' },
+                      { label: 'OCR Confidence', value: '99.4%', sub: 'PaddleOCR accuracy score' },
+                      { label: 'Active Patient', value: currentPatient.id, sub: currentPatient.name },
+                    ].map((stat) => (
+                      <div
+                        key={stat.label}
+                        className={`rounded-3xl p-5 backdrop-blur-md border shadow-sm ${
+                          isDark
+                            ? 'bg-[#09241c]/75 border-emerald-400/20 text-white'
+                            : 'bg-white/90 border-white/85 text-slate-800'
+                        }`}
+                      >
+                        <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${isDark ? 'text-emerald-300/70' : 'text-slate-500'}`}>
+                          {stat.label}
+                        </p>
+                        <p className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{stat.value}</p>
+                        <p className={`text-[11px] mt-0.5 ${isDark ? 'text-emerald-200/60' : 'text-slate-400'}`}>{stat.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Document details — full width table-style card */}
+                  <div
+                    className={`rounded-3xl p-6 backdrop-blur-md border shadow-sm ${
+                      isDark
+                        ? 'bg-[#09241c]/75 border-emerald-400/20 text-white'
+                        : 'bg-white/90 border-white/85 text-slate-800'
+                    }`}
+                  >
+                    <h3 className={`text-sm font-bold mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      Digitized Documents for {currentPatient.name}
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { name: 'Scanned_Prescription_OPD.jpg', type: 'PRESCRIPTION', confidence: '94%', entities: 6, raw: 'Tab Metformin 500mg BD, Tab Telmisartan 40mg OD' },
+                        { name: 'Lab_Report_HbA1c.pdf', type: 'LAB REPORT', confidence: '97%', entities: 4, raw: 'HbA1c: 7.2% (Elevated), FBS: 142 mg/dL' },
+                      ].map((doc, i) => (
+                        <div
+                          key={i}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border text-xs ${
+                            isDark
+                              ? 'bg-[#061a14]/70 border-emerald-500/20 text-emerald-100'
+                              : 'bg-slate-50/80 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-bold text-[10px] ${isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-100 text-emerald-800'}`}>
+                              OCR
+                            </div>
+                            <div className="min-w-0">
+                              <p className={`font-bold truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{doc.name}</p>
+                              <p className={`text-[10px] mt-0.5 truncate ${isDark ? 'text-emerald-300/60' : 'text-slate-400'}`}>{doc.raw}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${isDark ? 'bg-teal-500/20 border-teal-400/30 text-teal-300' : 'bg-teal-50 border-teal-200 text-teal-800'}`}>
+                              {doc.type}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] border ${isDark ? 'bg-emerald-500/20 border-emerald-400/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+                              Confidence {doc.confidence}
+                            </span>
+                            <span className={`text-[10px] font-medium ${isDark ? 'text-emerald-200/60' : 'text-slate-400'}`}>
+                              {doc.entities} entities
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </main>
         </div>

@@ -14,15 +14,19 @@ import { LanguageSelector } from './LanguageSelector';
 import { IdentificationScreen } from './IdentificationScreen';
 import { ConsentScreen } from './ConsentScreen';
 import { ChiefComplaintScreen } from './ChiefComplaintScreen';
+import { ChiefComplaintModeSelect } from './ChiefComplaintModeSelect';
+import { TouchChiefComplaintScreen } from './TouchChiefComplaintScreen';
 import { AdaptiveQuestionsScreen } from './AdaptiveQuestionsScreen';
 import { DocumentScanScreen } from './DocumentScanScreen';
 import { TimelineScreen } from './TimelineScreen';
 import { PatientReviewScreen } from './PatientReviewScreen';
 import { CompletionScreen } from './CompletionScreen';
 import { DoctorSelectionScreen } from './DoctorSelectionScreen';
+import { DoctorProfileSelectionScreen } from './DoctorProfileSelectionScreen';
 import { AyushIntakeScreen } from './AyushIntakeScreen';
 import { GeneralIntakeScreen } from './GeneralIntakeScreen';
 import { ChevronLeft, Home, HelpCircle } from 'lucide-react';
+import { DoctorProfile } from '../../types';
 
 export type KioskStep =
   | 'WELCOME'
@@ -35,6 +39,7 @@ export type KioskStep =
   | 'AYUSH_INTAKE'
   | 'GENERAL_INTAKE'
   | 'DOCUMENTS'
+  | 'DOCTOR_PROFILES'
   | 'TIMELINE'
   | 'REVIEW'
   | 'COMPLETE'
@@ -58,6 +63,7 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
   const [currentStep, setCurrentStep] = useState<KioskStep>('WELCOME');
   const [patient, setPatient] = useState<Patient>(DEMO_PATIENT);
   const [consent, setConsent] = useState<ConsentRecord | null>(null);
+  const [chiefComplaintMode, setChiefComplaintMode] = useState<'select' | 'voice' | 'touch'>('select');
   const [transcript, setTranscript] = useState(
     language === 'hi'
       ? 'मुझे दो दिन से सीने में दर्द हो रहा है और सांस लेने में तकलीफ है।'
@@ -68,6 +74,7 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
   const [ayushAnswers, setAyushAnswers] = useState<Record<string, string>>({});
   const [generalAnswers, setGeneralAnswers] = useState<Record<string, string>>({});
   const [doctorPreference, setDoctorPreference] = useState<'ayush' | 'general' | null>(null);
+  const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [documents, setDocuments] = useState<MedicalDocument[]>([]);
   const [timeline, setTimeline] = useState<MedicalTimelineEvent[]>(DEMO_TIMELINE);
 
@@ -77,11 +84,12 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
     'IDENTIFICATION',
     'CONSENT',
     'CHIEF_COMPLAINT',
-    'ADAPTIVE_QUESTIONS',
+    ...(currentStep === 'ADAPTIVE_QUESTIONS' ? ['ADAPTIVE_QUESTIONS' as KioskStep] : []),
+    'DOCUMENTS',
     'DOCTOR_SELECTION',
     ...(doctorPreference === 'ayush' ? ['AYUSH_INTAKE' as KioskStep] : []),
     ...(doctorPreference === 'general' ? ['GENERAL_INTAKE' as KioskStep] : []),
-    'DOCUMENTS',
+    'DOCTOR_PROFILES',
     'TIMELINE',
     'REVIEW',
     'COMPLETE',
@@ -90,13 +98,64 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
   const currentStepIdx = stepsList.indexOf(currentStep);
 
   const handleBack = () => {
+    if (currentStep === 'CHIEF_COMPLAINT' && chiefComplaintMode !== 'select') {
+      setChiefComplaintMode('select');
+      return;
+    }
     if (currentStepIdx > 0) {
-      setCurrentStep(stepsList[currentStepIdx - 1]);
+      const prevStep = stepsList[currentStepIdx - 1];
+      setCurrentStep(prevStep);
+      if (prevStep === 'CHIEF_COMPLAINT') {
+        setChiefComplaintMode('select');
+      }
     }
   };
 
   const handleResetKiosk = () => {
+    setChiefComplaintMode('select');
     setCurrentStep('WELCOME');
+  };
+
+  const handleFinalSubmit = async () => {
+    setCurrentStep('COMPLETE');
+
+    try {
+      const payload = {
+        patient,
+        transcript,
+        symptoms,
+        documents,
+        selectedDoctor,
+        ayushAnswers,
+        generalAnswers,
+        language,
+      };
+
+      const res = await fetch('/api/v1/sessions/intake-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const serverData = await res.json();
+      console.log('Case successfully pushed to Doctor Workstation:', serverData);
+
+      if (onSessionComplete) {
+        onSessionComplete({
+          patient,
+          transcript,
+          documents,
+          timeline,
+          selectedDoctor,
+          serverResult: serverData,
+        });
+      }
+    } catch (err) {
+      console.warn('Network / offline fallback during case push:', err);
+      if (onSessionComplete) {
+        onSessionComplete({ patient, transcript, documents, timeline, selectedDoctor });
+      }
+    }
   };
 
   return (
@@ -127,7 +186,7 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
               <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Step {currentStepIdx} of {stepsList.length - 2}: {currentStep.replace('_', ' ')}
+                Step {currentStepIdx} of {stepsList.length - 2}: {currentStep.replace(/_/g, ' ')}
               </span>
             </div>
 
@@ -178,15 +237,44 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             patientName={patient.name}
             onGrantConsent={(c) => {
               setConsent(c);
+              setChiefComplaintMode('select');
               setCurrentStep('CHIEF_COMPLAINT');
             }}
           />
         )}
 
-        {currentStep === 'CHIEF_COMPLAINT' && (
+        {currentStep === 'CHIEF_COMPLAINT' && chiefComplaintMode === 'select' && (
+          <ChiefComplaintModeSelect
+            language={language}
+            accessibilityMode={accessibilityMode}
+            patientName={patient.name}
+            onSelectMode={(mode) => setChiefComplaintMode(mode)}
+          />
+        )}
+
+        {currentStep === 'CHIEF_COMPLAINT' && chiefComplaintMode === 'voice' && (
           <ChiefComplaintScreen
             language={language}
             accessibilityMode={accessibilityMode}
+            onSwitchToTouch={() => setChiefComplaintMode('touch')}
+            onContinue={(trans, extracted) => {
+              setTranscript(trans);
+              setSymptoms(extracted);
+              setCurrentStep('ADAPTIVE_QUESTIONS');
+            }}
+            onProceedToOcr={(trans, extracted) => {
+              setTranscript(trans);
+              setSymptoms(extracted);
+              setCurrentStep('DOCUMENTS');
+            }}
+          />
+        )}
+
+        {currentStep === 'CHIEF_COMPLAINT' && chiefComplaintMode === 'touch' && (
+          <TouchChiefComplaintScreen
+            language={language}
+            accessibilityMode={accessibilityMode}
+            onSwitchToVoice={() => setChiefComplaintMode('voice')}
             onContinue={(trans, extracted) => {
               setTranscript(trans);
               setSymptoms(extracted);
@@ -206,8 +294,18 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             accessibilityMode={accessibilityMode}
             onComplete={(ans) => {
               setQuestionAnswers(ans);
-              setCurrentStep('DOCTOR_SELECTION');
+              setCurrentStep('DOCUMENTS');
             }}
+          />
+        )}
+
+        {currentStep === 'DOCUMENTS' && (
+          <DocumentScanScreen
+            language={language}
+            accessibilityMode={accessibilityMode}
+            documents={documents}
+            onAddDocument={(doc) => setDocuments((prev) => [...prev, doc])}
+            onContinue={() => setCurrentStep('DOCTOR_SELECTION')}
           />
         )}
 
@@ -232,7 +330,7 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             accessibilityMode={accessibilityMode}
             onComplete={(ans) => {
               setAyushAnswers(ans);
-              setCurrentStep('DOCUMENTS');
+              setCurrentStep('DOCTOR_PROFILES');
             }}
           />
         )}
@@ -243,17 +341,18 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             accessibilityMode={accessibilityMode}
             onComplete={(ans) => {
               setGeneralAnswers(ans);
-              setCurrentStep('DOCUMENTS');
+              setCurrentStep('DOCTOR_PROFILES');
             }}
           />
         )}
 
-        {currentStep === 'DOCUMENTS' && (
-          <DocumentScanScreen
+        {currentStep === 'DOCTOR_PROFILES' && (
+          <DoctorProfileSelectionScreen
             language={language}
             accessibilityMode={accessibilityMode}
-            documents={documents}
-            onAddDocument={(doc) => setDocuments((prev) => [...prev, doc])}
+            doctorCategory={doctorPreference || 'ayush'}
+            selectedDoctor={selectedDoctor}
+            onSelectDoctor={(doc) => setSelectedDoctor(doc)}
             onContinue={() => setCurrentStep('TIMELINE')}
           />
         )}
@@ -274,12 +373,8 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             patientName={patient.name}
             transcript={transcript}
             documents={documents}
-            onSubmit={() => {
-              setCurrentStep('COMPLETE');
-              if (onSessionComplete) {
-                onSessionComplete({ patient, transcript, documents, timeline });
-              }
-            }}
+            selectedDoctor={selectedDoctor}
+            onSubmit={handleFinalSubmit}
           />
         )}
 
@@ -288,6 +383,7 @@ export const PatientKiosk: React.FC<PatientKioskProps> = ({
             language={language}
             accessibilityMode={accessibilityMode}
             patientName={patient.name}
+            selectedDoctor={selectedDoctor}
             onReset={handleResetKiosk}
           />
         )}

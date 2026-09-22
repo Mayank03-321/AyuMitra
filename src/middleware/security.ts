@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 
-// In-memory rate limiting map for basic DDoS/brute-force defense
+// In-memory rate limiting map for API defense
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 120; // 120 requests/minute per IP
+const MAX_REQUESTS = 1000; // 1000 requests/minute per IP for API endpoints
 
 export function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -15,6 +15,11 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
 }
 
 export function rateLimiter(req: Request, res: Response, next: NextFunction) {
+  // Only apply rate limiting to API endpoints, never block Vite frontend assets or static files
+  if (!req.path.startsWith('/api')) {
+    return next();
+  }
+
   const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
   const now = Date.now();
   const entry = requestCounts.get(ip);

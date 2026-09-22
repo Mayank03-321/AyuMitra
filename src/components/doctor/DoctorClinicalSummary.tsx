@@ -122,6 +122,17 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
               >
                 UHID: {patient.id}
               </span>
+              {(patient as any).tokenNumber && (
+                <span
+                  className={`text-xs font-bold px-2.5 py-0.5 rounded-lg border ${
+                    isDark
+                      ? 'bg-amber-950/60 border-amber-500/30 text-amber-300'
+                      : 'bg-amber-100 text-amber-900 border-amber-300'
+                  }`}
+                >
+                  Token #{(patient as any).tokenNumber}
+                </span>
+              )}
               <span
                 className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                   patient.priority === 'High Priority'
@@ -145,6 +156,14 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
               <span className="font-bold text-rose-400">Blood Group: B+</span>
               <span className="opacity-40">•</span>
               <span>Spoken: <strong>{patient.language}</strong> (OmniVoice Transcribed)</span>
+              {(patient as any).selectedDoctor && (
+                <>
+                  <span className="opacity-40">•</span>
+                  <span className="text-emerald-600 font-bold">
+                    Room: {(patient as any).selectedDoctor?.roomNumber || 'OPD Room #104'}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -160,7 +179,7 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
             }`}
           >
             <Volume2 className="w-4 h-4 text-emerald-400" />
-            <span>Voice Session (3m 12s)</span>
+            <span>Voice / Chat Transcript</span>
           </button>
           <button
             type="button"
@@ -181,8 +200,8 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
         </div>
       </div>
 
-      {/* Red Flags Alert Section (if High Priority) */}
-      {patient.priority === 'High Priority' && (
+      {/* Red Flags Alert Section (if High Priority or Priority Alerts Exist) */}
+      {(patient.priority === 'High Priority' || (patient as any).priorityAlerts?.length > 0) && (
         <section
           className={`rounded-2xl p-5 backdrop-blur-md border shadow-xs ${
             isDark
@@ -204,12 +223,22 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
             </span>
           </div>
           <div className="mt-3 text-xs leading-relaxed space-y-1">
-            <p>
-              • <strong>Ischemic Trigger Indicator:</strong> 2-day history of retrosternal discomfort radiating to left upper limb on minimal exertion.
-            </p>
-            <p>
-              • <strong>Comorbid Risk Factor:</strong> Chronic uncontrolled hypertension (148/92 mmHg) combined with fasting hyperglycemia.
-            </p>
+            {(patient as any).priorityAlerts && (patient as any).priorityAlerts.length > 0 ? (
+              (patient as any).priorityAlerts.map((pa: any, i: number) => (
+                <p key={i}>
+                  • <strong>{pa.title}:</strong> {pa.reason}
+                </p>
+              ))
+            ) : (
+              <>
+                <p>
+                  • <strong>Ischemic Trigger Indicator:</strong> 2-day history of retrosternal discomfort radiating to left upper limb on minimal exertion.
+                </p>
+                <p>
+                  • <strong>Comorbid Risk Factor:</strong> Chronic uncontrolled hypertension (148/92 mmHg) combined with fasting hyperglycemia.
+                </p>
+              </>
+            )}
           </div>
         </section>
       )}
@@ -240,10 +269,10 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
               <strong className={isDark ? 'text-white' : 'text-slate-900'}>Chief Complaint:</strong> {patient.chiefComplaint}
             </p>
             <p>
-              <strong className={isDark ? 'text-white' : 'text-slate-900'}>History of Present Illness (HPI):</strong> Patient presented with a 2-day progressive onset of retrosternal discomfort and exertional breathlessness.
+              <strong className={isDark ? 'text-white' : 'text-slate-900'}>History of Present Illness (HPI):</strong> {((patient as any).transcript) ? `Patient reported: "${(patient as any).transcript}"` : 'Patient presented with progressive onset of retrosternal discomfort and exertional breathlessness.'}
             </p>
             <p>
-              <strong className={isDark ? 'text-white' : 'text-slate-900'}>Ayurvedic Symptoms:</strong> Agnimandya (impaired digestion), Shwasa Kashta, Gaurava (heaviness in chest area).
+              <strong className={isDark ? 'text-white' : 'text-slate-900'}>Ayurvedic Symptoms:</strong> {(patient as any).ayushFindings?.doshaImbalance || 'Agnimandya (impaired digestion), Shwasa Kashta, Gaurava (heaviness in chest area).' }
             </p>
           </div>
         </div>
@@ -275,7 +304,11 @@ export const DoctorClinicalSummary: React.FC<DoctorClinicalSummaryProps> = ({
               <strong className={isDark ? 'text-white' : 'text-slate-900'}>OCR Extracted Lab Findings:</strong> Fasting Blood Sugar: 142 mg/dL [High], HbA1c: 7.2%, Serum Creatinine: 1.0 mg/dL.
             </p>
             <p>
-              <strong className={isDark ? 'text-white' : 'text-slate-900'}>Active Prescriptions:</strong> Tab Metformin 500mg BD, Tab Telmisartan 40mg OD.
+              <strong className={isDark ? 'text-white' : 'text-slate-900'}>Active Prescriptions:</strong> {
+                (patient as any).medications && Array.isArray((patient as any).medications) && (patient as any).medications.length > 0
+                  ? (patient as any).medications.map((m: any) => `${m.name} ${m.dose} (${m.frequency || m.route})`).join(', ')
+                  : 'Tab Metformin 500mg BD, Tab Telmisartan 40mg OD, Tab Aspirin 75mg OD'
+              }
             </p>
           </div>
         </div>

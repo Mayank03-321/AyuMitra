@@ -357,7 +357,7 @@ export const DocumentScanScreen: React.FC<DocumentScanScreenProps> = ({
           }`}
         >
           <span>
-            {isHindi ? 'मेडिकल टाइमलाइन देखें' : 'View Medical Timeline'}
+            {isHindi ? 'परामर्श हेतु डॉक्टर चुनें' : 'Choose Doctor & Continue'}
           </span>
           <ArrowRight className="w-5 h-5" />
         </button>

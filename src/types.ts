@@ -307,3 +307,31 @@ export interface AIProviderStatus {
   modelOrVersion: string;
   latencyMs: number;
 }
+
+export interface DoctorProfile {
+  id: string;
+  name: string;
+  nameHi: string;
+  title: string;
+  titleHi: string;
+  category: 'ayush' | 'general';
+  specialty: string;
+  specialtyHi: string;
+  qualification: string;
+  experienceYears: number;
+  roomNumber: string;
+  department: string;
+  departmentHi: string;
+  currentQueue: number;
+  availableDays: string;
+  availableDaysHi: string;
+  rating: number;
+  reviewCount: number;
+  languages: string[];
+  avatarUrl: string;
+  badge: string;
+  badgeHi: string;
+  bio: string;
+  bioHi: string;
+}
+

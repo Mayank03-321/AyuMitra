@@ -116,3 +116,20 @@ model AuditLog {
   sessionId String?
   metadata  Json?
 }
+
+model UserCredential {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         String    @default("DOCTOR")
+  fullName     String    @map("full_name")
+  nmcRegNo     String?   @map("nmc_reg_no")
+  hospitalName String?   @default("AyuMitra Central Hospital") @map("hospital_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_credentials")
+}
+
